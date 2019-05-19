@@ -1,0 +1,84 @@
+/**
+ * Simple heap sort and count distinct implementation for use in private work-item space.
+ * TODO this implementation does too many global memory accesses, any ideas to reduce?
+ */
+
+#ifndef __HEAPSORT_CLH
+#define __HEAPSORT_CLH
+
+#ifndef HSORT_ELEMENT_TYPE
+#define HSORT_ELEMENT_TYPE ulong
+//#define HSORT_ELEMENT_TYPE double2
+#endif
+
+#ifndef HSORT_COMPARE_LT
+#define HSORT_COMPARE_LT(x, y) (x < y)
+//#define HSORT_COMPARE_LT(x, y) ((x).x < (y).x || x.y < y.y)
+#endif
+
+#ifndef HSORT_COMPARE_EQ
+#define HSORT_COMPARE_EQ(x, y, tol) (x == y)
+//#define HSORT_COMPARE_EQ(x, y, tol) (distance(x, y) <= tol)
+#endif
+
+#ifndef HSORT_SWAP
+#define HSORT_SWAP(x, y) { HSORT_ELEMENT_TYPE t = *(x); *(x) = *(y); *(y) = t; }
+#endif
+
+#ifndef HSORT_MEMORY_MOD
+#define HSORT_MEMORY_MOD global
+#endif
+
+void make_heap(HSORT_MEMORY_MOD HSORT_ELEMENT_TYPE*, int, int);
+void make_heap(HSORT_MEMORY_MOD HSORT_ELEMENT_TYPE* data, int n, int i) {
+    while (true) {
+        int smallest = i;
+        int l = (i << 1) + 1;
+        int r = (i << 1) + 2;
+
+        if (l < n && HSORT_COMPARE_LT(data[smallest], data[l])) {
+            smallest = l;
+        }
+        if (r < n && HSORT_COMPARE_LT(data[smallest], data[r])) {
+            smallest = r;
+        }
+        if (smallest == i) {
+            return; // already smallest
+        }
+
+        HSORT_SWAP(data + i, data + smallest)
+
+        i = smallest;
+    }
+}
+
+void heap_sort(HSORT_MEMORY_MOD HSORT_ELEMENT_TYPE*, int);
+void heap_sort(HSORT_MEMORY_MOD HSORT_ELEMENT_TYPE* data, int n) {
+    for (int i = n / 2 - 1; i >= 0; --i) {
+        make_heap(data, n, i);
+    }
+
+    for (int i = n - 1; i >= 0; --i) {
+        HSORT_SWAP(data, data + i)
+        make_heap(data, i, 0);
+    }
+}
+
+int count_unique(HSORT_MEMORY_MOD HSORT_ELEMENT_TYPE*, int, float);
+int count_unique(HSORT_MEMORY_MOD HSORT_ELEMENT_TYPE* data, int n, float tol) {
+    //
+    heap_sort(data, n);
+    //
+    HSORT_ELEMENT_TYPE prev = data[0];
+    int uniques = 1;
+    for (int i = 1; i < n; ++i) {
+        HSORT_ELEMENT_TYPE next = data[i];
+        if (!HSORT_COMPARE_EQ(prev, next, tol)) {
+            prev = next;
+            ++uniques;
+        }
+    }
+    return uniques;
+}
+
+#endif // __HEAPSORT_CLH

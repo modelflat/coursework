@@ -1,0 +1,121 @@
+#ifndef __UTIL_CLH
+#define __UTIL_CLH
+
+#define COORD_2D_INV_Y (int2)(get_global_id(0), get_global_size(1) - get_global_id(1) - 1)
+
+inline float3 hsv2rgb(float3 hsv) {
+    const float c = hsv.y * hsv.z;
+    const float x = c * (1 - fabs(fmod( hsv.x / 60, 2 ) - 1));
+    float3 rgb;
+    if      (0 <= hsv.x && hsv.x < 60) {
+        rgb = (float3)(c, x, 0);
+    } else if (60 <= hsv.x && hsv.x < 120) {
+        rgb = (float3)(x, c, 0);
+    } else if (120 <= hsv.x && hsv.x < 180) {
+        rgb = (float3)(0, c, x);
+    } else if (180 <= hsv.x && hsv.x < 240) {
+        rgb = (float3)(0, x, c);
+    } else if (240 <= hsv.x && hsv.x < 300) {
+        rgb = (float3)(x, 0, c);
+    } else {
+        rgb = (float3)(c, 0, x);
+    }
+    return (rgb + (hsv.z - c));
+}
+
+inline int2 to_size(real2 point, const real4 bounds, const int2 size) {
+    point = (point - bounds.s02) / (bounds.s13 - bounds.s02);
+    return (int2)(
+        (int)(point.x * size.x),
+        size.y - (int)(point.y * size.y)
+    );
+}
+
+inline bool in_image(const int2 coord, const int2 size) {
+    return coord.x < size.x && coord.y < size.y && coord.x >= 0 && coord.y >= 0;
+}
+
+inline real2 point_from_id(const real4 bounds) {
+    const real2 uv = {
+        (real)(get_global_id(0) + 0.5) / (real)get_global_size(0),
+        (real)(get_global_id(1) + 0.5) / (real)get_global_size(1)
+    };
+    return bounds.s02 + uv * (bounds.s13 - bounds.s02);
+}
+
+inline real2 point_from_id_dense(const real4 bounds) {
+    const real2 uv = {
+        (real)(get_global_id(0)) / (real)(get_global_size(0) - 1),
+        (real)(get_global_id(1)) / (real)(get_global_size(1) - 1)
+    };
+    return bounds.s02 + uv * (bounds.s13 - bounds.s02);
+}
+
+inline void put_point(write_only image2d_t image, const int2 coord, const int2 image_size) {
+    // brute-force non-zero radius for point
+    if (POINT_RADIUS > 1) {
+        for (int x = -POINT_RADIUS; x <= POINT_RADIUS; ++x) {
+            for (int y = -POINT_RADIUS; y <= POINT_RADIUS; ++y) {
+                const int2 coord_new = (int2)(coord.x + x, coord.y + y);
+                if (in_image(coord_new, image_size) && (x*x + y*y <= POINT_RADIUS*POINT_RADIUS)) {
+                    write_imagef(image, coord_new, POINT_COLOR);
+                }
+            }
+        }
+    } else if (POINT_RADIUS == 1) {
+        int2 coord_new = (int2)(coord.x, coord.y);
+        write_imagef(image, coord_new, POINT_COLOR);
+
+        coord_new.x = coord.x - 1;
+        if (in_image(coord_new, image_size)) {
+            write_imagef(image, coord_new, POINT_COLOR);
+        }
+        coord_new.x = coord.x + 1;
+        if (in_image(coord_new, image_size)) {
+            write_imagef(image, coord_new, POINT_COLOR);
+        }
+        coord_new.x = coord.x;
+        coord_new.y = coord.y - 1;
+        if (in_image(coord_new, image_size)) {
+            write_imagef(image, coord_new, POINT_COLOR);
+        }
+        coord_new.y = coord.y + 1;
+        if (in_image(coord_new, image_size)) {
+            write_imagef(image, coord_new, POINT_COLOR);
+        }
+    } else {
+        write_imagef(image, coord, POINT_COLOR);
+    }
+}
+
+inline real2 round_point(real2 point, int to_sign) {
+    return convert_real2(convert_long2_rtz(point * pow(10.0f, (float)to_sign))) / pow(10.0f, (float)(to_sign));
+}
+
+// C++ STL pair operator< implementation
+inline int pair_lt(const real2 p1, const real2 p2) {
+    if (p1.x < p2.x) {
+        return 1;
+    } else if (p2.x < p1.x) {
+        return 0;
+    } else if (p1.y < p2.y) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+#ifndef DETECTION_PRECISION
+#define DETECTION_PRECISION 1e-4
+#endif
+
+inline int pair_eq(real2 p1, real2 p2) {
+    return fabs(p1.x - p2.x) < DETECTION_PRECISION
+        && fabs(p1.y - p2.y) < DETECTION_PRECISION;
+}
+
+inline int pair_gt(const real2 p1, const real2 p2) {
+    return !(pair_lt(p1, p2) || pair_eq(p1, p2));
+}
+
+#endif // __UTIL_CLH

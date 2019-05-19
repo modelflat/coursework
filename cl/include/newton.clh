@@ -1,0 +1,77 @@
+#ifndef __NEWTON_CLH
+#define __NEWTON_CLH
+
+#include "random.clh"
+#include "complex_v2.clh"
+
+#define RANDOM_ROOT(rng_state) ((as_uint(random(rng_state)) >> 3) % 3)
+
+#define ZERO (real2)(0, 0)
+
+inline real2 c_coef(real2 c, real B) {
+    return B / (1 + B) * c;
+}
+
+inline real2 a_coef(real2 z, real2 c, real A, real B) {
+    return -(z + A*(z + cdiv(c, csq(z)))) / (1 + B);
+}
+
+real2 next_point(
+    real2 z, real2 c, real A, real B,
+    uint2* rng_state, int* seq_pos, const int seq_size, const global int* seq
+) {
+    int root;
+
+    if (seq_size > 0) {
+        *seq_pos %= seq_size;
+        root = seq[(*seq_pos)++];
+    } else {
+        root = RANDOM_ROOT(rng_state);
+    }
+
+    real2 roots[3];
+    solve_cubic(
+        a_coef(z, c, A, B), ZERO, c_coef(c, B), roots
+    );
+    return roots[root];
+}
+
+inline real2 henon(real2 z, real b, real a) {
+    return (real2)(
+        1 - a*z.x*z.x - b*z.y,
+        z.x
+    );
+}
+
+#define INIT_VARIABLES(z0, c, h, alpha)                                         \
+    int _SEQ_POS = 0;                                                           \
+    int _ROOT_NUM;                                                              \
+    const real2 _AB = (real2)((h) * (alpha) / 3, (h) * (alpha) / 3 - (h) / 3);  \
+    const real2 _C_COEF = c_coef(c, _AB.s1);                                    \
+    real2 _ROOTS[3];                                                            \
+    real2 _Z_VAR = (z0); // real2 _pajapapa = {h, alpha};
+
+#define Z_VAR _Z_VAR // (_ROOTS[0])
+
+#define _A_COEF(z, c, A, B) (-((z) + (A) * ((z) + cdiv((c), csq(z)))) / (1 + (B)))
+
+#define NEXT_POINT(c, seq_size, rng_state)                  \
+    {                                                       \
+        if (seq_size > 0) {                                 \
+            _SEQ_POS %= (seq_size);                         \
+            _ROOT_NUM = seq[_SEQ_POS++];                    \
+        } else {                                            \
+            _ROOT_NUM = RANDOM_ROOT(rng_state);             \
+        }                                                   \
+        solve_cubic(                                        \
+            _A_COEF(Z_VAR, (c), _AB.s0, _AB.s1),            \
+            ZERO,                                           \
+            _C_COEF,                                        \
+            _ROOTS                                          \
+        );                                                  \
+        /*Z_VAR = henon(Z_VAR, _pajapapa.x, _pajapapa.y);*/     \
+        Z_VAR = _ROOTS[_ROOT_NUM];                          \
+    }
+
+
+#endif // __NEWTON_CLH
