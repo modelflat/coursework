@@ -2,11 +2,10 @@ from multiprocessing import Lock
 
 from PyQt5.QtCore import Qt
 
+from . import CL_INCLUDE_PATH, CL_SOURCE_PATH
+
 from .utils import *
 from .ui import ParameterizedImageWidget
-
-
-numpy.random.seed(42)
 
 
 class IFSFractal:

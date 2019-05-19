@@ -2,7 +2,7 @@ import numpy
 import pyopencl as cl
 import unittest
 
-from core.ifs_fractal import CL_INCLUDE_PATH, read_file, copy_dev, alloc_like
+from app.core.ifs_fractal import CL_INCLUDE_PATH, read_file, copy_dev, alloc_like
 
 
 TEST_KERNEL = r"""
@@ -100,7 +100,7 @@ class TestComplex(unittest.TestCase):
     def setUp(self):
         numpy.random.seed(42)
 
-        src = read_file(CL_INCLUDE_PATH + "/complex_v2.clh")
+        src = read_file(CL_INCLUDE_PATH + "/complex.clh")
 
         self.ctx = cl.Context(devices=[cl.get_platforms()[0].get_devices()[0]])
         self.queue = cl.CommandQueue(self.ctx)
@@ -272,3 +272,7 @@ class TestComplex(unittest.TestCase):
         s2 = numpy.roots([complex(1.0), complex(0), -complex(36, 12), complex(126, -117)])
 
         compare_solutions(s1, s2, print_result=False)
+
+
+if __name__ == '__main__':
+    unittest.main()

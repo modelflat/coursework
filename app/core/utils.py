@@ -96,9 +96,3 @@ def prepare_root_seq(ctx, root_seq):
 
     seq_buf = cl.Buffer(ctx, flags=cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=seq)
     return seq.size if root_seq is not None else 0, seq_buf
-
-
-ROOT_DIR = os.path.abspath(os.path.join(sys.path[0], ".."))
-
-CL_SOURCE_PATH = os.path.join(ROOT_DIR, "cl")
-CL_INCLUDE_PATH = os.path.join(CL_SOURCE_PATH, "include")

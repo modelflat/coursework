@@ -3,7 +3,7 @@ import pyopencl as cl
 import unittest
 
 
-from core.ifs_fractal import CL_INCLUDE_PATH, read_file
+from app.core.ifs_fractal import CL_INCLUDE_PATH, read_file
 
 
 TEST_KERNEL = r"""
@@ -54,3 +54,7 @@ class TestHeapSort(unittest.TestCase):
         # print(count, out[0])
 
         assert count == out[0]
+
+
+if __name__ == '__main__':
+    unittest.main()

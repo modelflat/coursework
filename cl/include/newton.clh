@@ -2,7 +2,7 @@
 #define __NEWTON_CLH
 
 #include "random.clh"
-#include "complex_v2.clh"
+#include "complex.clh"
 
 #define RANDOM_ROOT(rng_state) ((as_uint(random(rng_state)) >> 3) % 3)
 

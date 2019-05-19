@@ -26,7 +26,7 @@ from matplotlib.pyplot import imread
 from scipy.stats import linregress
 from time import perf_counter
 
-from core.utils import alloc_image, create_context_and_queue
+from .utils import alloc_image, create_context_and_queue
 
 
 SOURCE = r"""

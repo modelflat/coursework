@@ -12,6 +12,9 @@ from core.ui import stack
 from core.utils import blank_image
 
 
+numpy.random.seed(42)
+
+
 class CourseWork(SimpleApp):
 
     def __init__(self):
