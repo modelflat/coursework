@@ -1,16 +1,12 @@
-
-# TODO setup proper testing for heap_sort, count_unique
-
-import pyopencl as cl
 import numpy
+import pyopencl as cl
+import unittest
 
-from core.ifs_fractal import ROOT_DIR, read_file
 
-numpy.random.seed(42)
+from core.ifs_fractal import CL_INCLUDE_PATH, read_file
 
-SOURCE = read_file(ROOT_DIR + "/include/heapsort.clh")
 
-test_kernel = r"""
+TEST_KERNEL = r"""
 
 kernel void test_count_unique(
     int n,
@@ -22,41 +18,39 @@ kernel void test_count_unique(
 
 """
 
-dev = cl.get_platforms()[0].get_devices()[0]
-ctx = cl.Context(devices=[dev])
-queue = cl.CommandQueue(ctx)
-prg = cl.Program(ctx, SOURCE + test_kernel).build(options=["-I", ROOT_DIR + "/include", "-w"])
 
-n = 1 << 20
-arr = numpy.random.randint(0, n, n, numpy.uint64)
-arr_dev = cl.Buffer(ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=arr)
-out_dev = cl.Buffer(ctx, cl.mem_flags.READ_WRITE, size=arr.nbytes)
+class TestHeapSort(unittest.TestCase):
 
-prg.test_count_unique(
-    queue, (1,), None, numpy.int32(n),
-    arr_dev, out_dev
-)
+    def setUp(self):
+        numpy.random.seed(42)
 
-arr_res = arr.copy()
-out = numpy.empty_like(arr_res)
+        src = read_file(CL_INCLUDE_PATH + "/heapsort.clh")
 
-cl.enqueue_copy(queue, arr_res, arr_dev)
-cl.enqueue_copy(queue, out, out_dev)
+        self.ctx = cl.Context(devices=[cl.get_platforms()[0].get_devices()[0]])
+        self.queue = cl.CommandQueue(self.ctx)
+        self.prg = cl.Program(self.ctx, src + TEST_KERNEL).build(options=["-I", CL_INCLUDE_PATH, "-w"])
 
-count = len(numpy.unique(arr))
-print(arr_res)
-print(count, out[0])
-assert count == out[0]
+    def test_count_unique(self):
+        n = 1 << 20
 
+        arr = numpy.random.randint(0, n, n, numpy.uint64)
+        arr_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=arr)
+        out_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=arr.nbytes)
 
+        self.prg.test_count_unique(
+            self.queue, (1,), None, numpy.int32(n),
+            arr_dev, out_dev
+        )
 
-test_kernel = r"""
+        arr_res = arr.copy()
+        out = numpy.empty_like(arr_res)
 
-kernel void test_heap_sort(
-    int n,
-    global ulong* data
-) {
-    heap_sort(data, n);
-}
+        cl.enqueue_copy(self.queue, arr_res, arr_dev)
+        cl.enqueue_copy(self.queue, out, out_dev)
 
-"""
+        count = len(numpy.unique(arr))
+
+        # print(arr_res)
+        # print(count, out[0])
+
+        assert count == out[0]
