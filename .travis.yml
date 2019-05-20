@@ -1,0 +1,53 @@
+language: python
+python:
+  - "3.6"
+
+sudo: required
+dist: xenial
+
+os:
+  - linux
+
+install:
+  - sudo apt-get -yq update
+
+  # Utilities
+  - "sudo apt-get install -yq --allow-downgrades --allow-remove-essential            \
+     --allow-change-held-packages git wget apt-utils cmake unzip                \
+     libboost-all-dev software-properties-common
+  "
+  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+  - sudo apt-get -yq update
+
+  # Clang 6.0
+  - "sudo apt-get install -yq             \
+     --allow-downgrades --allow-remove-essential --allow-change-held-packages   \
+     clang-6.0 libomp-dev
+  "
+
+  # OpenCL ICD Loader
+  - "sudo apt-get install -yq --allow-downgrades --allow-remove-essential           \
+     --allow-change-held-packages ocl-icd-opencl-dev ocl-icd-dev opencl-headers
+  "
+
+  # https://software.intel.com/en-us/articles/opencl-drivers#latest_CPU_runtime
+  - "export ICD_PACKAGE_URL=http://registrationcenter-download.intel.com/akdlm/irc_nas/12556/opencl_runtime_16.1.2_x64_rh_6.4.0.37.tgz && \
+     export ICD_PACKAGE_NAME=opencl_runtime_16.1.2_x64_rh_6.4.0.37 && \
+     sudo wget -q ${ICD_PACKAGE_URL} -O /tmp/opencl_runtime.tgz && \
+     sudo tar -xzf /tmp/opencl_runtime.tgz -C /tmp && \
+     sudo sed 's/decline/accept/g' -i /tmp/${ICD_PACKAGE_NAME}/silent.cfg && \
+     sudo apt-get install -yq cpio clinfo && \
+     sudo /tmp/${ICD_PACKAGE_NAME}/install.sh -s /tmp/${ICD_PACKAGE_NAME}/silent.cfg
+  "
+  - clinfo
+  - pip install -r requirements.txt
+
+before_script:
+  - cd "${TRAVIS_BUILD_DIR}"
+  - ls -l
+
+script:
+  - python -m unittest discover
+
+after_success:
+  - echo SUCCESS
