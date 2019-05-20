@@ -63,14 +63,15 @@ inline real2 henon(real2 z, real b, real a) {
         } else {                                            \
             _ROOT_NUM = RANDOM_ROOT(rng_state);             \
         }                                                   \
-        solve_cubic(                                        \
+        int errcode = solve_cubic(                                        \
             _A_COEF(Z_VAR, (c), _AB.s0, _AB.s1),            \
             ZERO,                                           \
             _C_COEF,                                        \
             _ROOTS                                          \
         );                                                  \
         /*Z_VAR = henon(Z_VAR, _pajapapa.x, _pajapapa.y);*/     \
-        Z_VAR = _ROOTS[_ROOT_NUM];                          \
+        /*Z_VAR = _ROOTS[_ROOT_NUM];*/                          \
+        Z_VAR = errcode == 2 ? _ROOTS[0] : _ROOTS[_ROOT_NUM];                          \
     }
 
 

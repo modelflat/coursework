@@ -262,6 +262,21 @@ class TestComplex(unittest.TestCase):
             sol = numpy.roots([complex(1.0), a, b, c])
             compare_solutions(z, sol, print_result=False)
 
+    def test_solve_cubic_b_and_c_zeros(self, n=1 << 10):
+        a_arr = 10*numpy.random.random(size=(n, 2)) - 5
+        b_arr = numpy.zeros(shape=(n, 2))
+        c_arr = numpy.zeros(shape=(n, 2))
+
+        res, err = self._call_solve_equations(a_arr, b_arr, c_arr)
+
+        a_arr = a_arr.view(numpy.complex128).flatten()
+        b_arr = b_arr.view(numpy.complex128).flatten()
+        c_arr = c_arr.view(numpy.complex128).flatten()
+
+        for a, b, c, z, e in zip(a_arr, b_arr, c_arr, res, err):
+            sol = numpy.roots([complex(1.0), a, b, c])
+            compare_solutions(z, sol, print_result=False)
+
     def test_solve_cubic(self):
         s1 = self._call_for_single_eq(complex(-6.0), complex(11.0), complex(-6.0))
         s2 = numpy.roots([complex(1.0), complex(-6.0), complex(11.0), complex(-6.0)])

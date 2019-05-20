@@ -80,6 +80,21 @@ inline int is_real(real2 x) {
     return fabs(x.y) <= IS_REAL_CHECK_THRESHOLD;
 }
 
+// multiplies by second cubic unity root (rotates by 2PI/3)
+inline real2 unity_ccbrt_1_mul(const real2 a) {
+    return (real2)(
+        -a.x / 2 - a.y*SQRT_3_DIV_2, -a.y / 2 + a.x*SQRT_3_DIV_2
+    );
+}
+
+// multiplies by second cubic unity root (rotates by 2PI/3)
+inline real2 unity_ccbrt_2_mul(const real2 a) {
+    return (real2)(
+        -a.x / 2 + a.y*SQRT_3_DIV_2, -a.y / 2 - a.x*SQRT_3_DIV_2
+    );
+}
+
+
 // solve_cubic -- http://www.ursoswald.ch/download/CUBIC.pdf
 
 // TODO optimize solve_cubic functions
@@ -92,16 +107,22 @@ void solve_depressed_cubic(real2 p, real2 q, real2 roots[3]) {
 
     real2 u = ccbrt1(-q / 2 + d);
     real2 v = -cdiv(p, 3 * u);
-
     roots[0] = u + v;
 
-    u = cmul(u, UNITY_ROOT_1);
-    v = cmul(v, UNITY_ROOT_2);
+    u = unity_ccbrt_1_mul(u);
+    v = unity_ccbrt_2_mul(v);
     roots[1] = u + v;
 
-    u = cmul(u, UNITY_ROOT_1);
-    v = cmul(v, UNITY_ROOT_2);
+    u = unity_ccbrt_1_mul(u);
+    v = unity_ccbrt_2_mul(v);
     roots[2] = u + v;
+}
+
+// solve cubic -- D = 0
+inline void solve_depressed_cubic_b_c_zeros(real2 a, real2 roots[3]) {
+    roots[0] = -a;
+    roots[1] = 0;
+    roots[2] = 0;
 }
 
 // solve_cubic -- real p, q
@@ -132,21 +153,26 @@ void solve_depressed_real_cubic(real p, real q, real2 roots[3]) {
 // solves cubic equation given in form z**3 + a*z**2 + b*z + c = 0
 int solve_cubic(real2, real2, real2, real2[3]);
 int solve_cubic(real2 a, real2 b, real2 c, real2 roots[3]) {
-    const real2 p = b - csq(a) / 3;
-    const real2 q = (2 * ccb(a) - 9 * cmul(a, b)) / 27 + c;
 
     int code;
-    if (is_real(p) && is_real(q)) {
-        solve_depressed_real_cubic(p.x, q.x, roots);
-        code = 0;
+    if (all(fabs(b) <= 1e-32) && all(fabs(c) <= 1e-32)) {
+        solve_depressed_cubic_b_c_zeros(a, roots);
+        code = 2;
     } else {
-        solve_depressed_cubic(p, q, roots);
-        code = 1;
-    }
+        const real2 p = b - csq(a) / 3;
+        const real2 q = (2 * ccb(a) - 9 * cmul(a, b)) / 27 + c;
+        if (is_real(p) && is_real(q)) {
+            solve_depressed_real_cubic(p.x, q.x, roots);
+            code = 0;
+        } else {
+            solve_depressed_cubic(p, q, roots);
+            code = 1;
+        }
 
-    roots[0] -= a / 3;
-    roots[1] -= a / 3;
-    roots[2] -= a / 3;
+        roots[0] -= a / 3;
+        roots[1] -= a / 3;
+        roots[2] -= a / 3;
+    }
 
     return code;
 }
