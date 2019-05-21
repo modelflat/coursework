@@ -13,7 +13,7 @@ matrix:
 
 before_install:
   - cd "${TRAVIS_BUILD_DIR}"
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then ./.travis/install-opencl-linux.sh       ; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo ./.travis/install-opencl-linux.sh  ; fi
   - if [ "$TRAVIS_OS_NAME" = "osx"   ]; then echo "OpenCL should be present on OS X" ; fi
   - pip install -r requirements.txt
 
