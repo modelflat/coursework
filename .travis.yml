@@ -8,8 +8,8 @@ matrix:
   include:
     - os: linux
       dist: xenial
-    - os: osx
-      osx_image: xcode10
+#    - os: osx
+#      osx_image: xcode10
 
 before_install:
   - cd "${TRAVIS_BUILD_DIR}"
