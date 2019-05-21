@@ -16,6 +16,14 @@ kernel void test_count_unique(
     *out = count_unique(data, n, 0.0);
 }
 
+kernel void test_heap_sort(
+    int n,
+    global ulong* data
+) {
+    heap_sort(data, n);
+}
+
+
 """
 
 
@@ -54,6 +62,22 @@ class TestHeapSort(unittest.TestCase):
         # print(count, out[0])
 
         assert count == out[0]
+
+    def test_heap_sort(self):
+        n = 1 << 20
+
+        arr = numpy.random.randint(0, n, n, numpy.uint64)
+        arr_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=arr)
+
+        self.prg.test_heap_sort(
+            self.queue, (1,), None,
+            numpy.int32(n), arr_dev
+        )
+
+        arr_res = arr.copy()
+        cl.enqueue_copy(self.queue, arr_res, arr_dev)
+
+        assert (arr_res == numpy.sort(arr)).all()
 
 
 if __name__ == '__main__':

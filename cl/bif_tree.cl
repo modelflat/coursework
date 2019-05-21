@@ -1,7 +1,7 @@
 #include "newton.clh"
 #include "util.clh"
 
-//
+// compute points for tree
 kernel void compute_points_for_bif_tree(
     const real2 z0,
     const real2 c,
@@ -26,31 +26,31 @@ kernel void compute_points_for_bif_tree(
 
     global real* result
 ) {
-    uint2 rng_state;
-    init_state(seed, &rng_state);
-
     const int id = get_global_id(0);
     result += id * iter;
 
     const real other_param = other_param_min + id * (other_param_max - other_param_min) / get_global_size(0);
 
-    INIT_VARIABLES(z0, c,
+    newton_state state;
+    ns_init(
+        &state,
+        z0, c,
         fixed_param_id == 0 ? fixed_param : other_param,
-        fixed_param_id == 1 ? fixed_param : other_param
+        fixed_param_id == 1 ? fixed_param : other_param,
+        seed, seq_size, seq
     );
 
-//    printf("%f %f %f %f")
-
     for (int i = 0; i < skip; ++i) {
-        NEXT_POINT(c, seq_size, &rng_state);
+        ns_next(&state);
     }
 
     for (int i = 0; i < iter; ++i) {
-        result[i] = (var_id == 0) ? Z_VAR.x : Z_VAR.y;
-        NEXT_POINT(c, seq_size, &rng_state);
+        result[i] = (var_id == 0) ? state.z.x : state.z.y;
+        ns_next(&state);
     }
 }
 
+// write point to image
 inline void write_point(
     const real x, const real x_min, const real x_max, const int l_id,
     const int flip_y,
@@ -63,6 +63,7 @@ inline void write_point(
     write_imagef(out, (int2)(l_id, (flip_y) ? h - x_coord : x_coord), (float4)(0.0, 0.0, 0.0, 1.0));
 }
 
+// draw tree
 kernel void draw_bif_tree(
     const int iter,
     const real x_min, const real x_max,

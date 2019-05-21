@@ -4,75 +4,57 @@
 #include "random.clh"
 #include "complex.clh"
 
+
 #define RANDOM_ROOT(rng_state) ((as_uint(random(rng_state)) >> 3) % 3)
 
-#define ZERO (real2)(0, 0)
 
-inline real2 c_coef(real2 c, real B) {
-    return B / (1 + B) * c;
-}
-
-inline real2 a_coef(real2 z, real2 c, real A, real B) {
-    return -(z + A*(z + cdiv(c, csq(z)))) / (1 + B);
-}
-
-real2 next_point(
-    real2 z, real2 c, real A, real B,
-    uint2* rng_state, int* seq_pos, const int seq_size, const global int* seq
-) {
-    int root;
-
-    if (seq_size > 0) {
-        *seq_pos %= seq_size;
-        root = seq[(*seq_pos)++];
-    } else {
-        root = RANDOM_ROOT(rng_state);
-    }
-
+typedef struct {
+    real2 z, c;
+    real h, alpha, eps;
+    uint2 rng_state;
+    int seq_pos, seq_size;
+    const global int* seq;
     real2 roots[3];
-    solve_cubic(
-        a_coef(z, c, A, B), ZERO, c_coef(c, B), roots
-    );
-    return roots[root];
+} newton_state;
+
+
+inline void ns_init(
+    newton_state* s,
+    real2 z0, real2 c, real h, real alpha, ulong seed, int seq_size, const global int* seq
+) {
+    s->z = z0;
+    s->c = c;
+    s->h = h;
+    s->alpha = alpha;
+    s->eps = -h * (1 - alpha) / 3;
+    init_state(seed, &s->rng_state);
+    s->seq_pos = 0;
+    s->seq_size = seq_size;
+    s->seq = seq;
 }
 
-inline real2 henon(real2 z, real b, real a) {
-    return (real2)(
-        1 - a*z.x*z.x - b*z.y,
-        z.x
-    );
-}
 
-#define INIT_VARIABLES(z0, c, h, alpha)                                         \
-    int _SEQ_POS = 0;                                                           \
-    int _ROOT_NUM;                                                              \
-    const real2 _AB = (real2)((h) * (alpha) / 3, (h) * (alpha) / 3 - (h) / 3);  \
-    const real2 _C_COEF = c_coef(c, _AB.s1);                                    \
-    real2 _ROOTS[3];                                                            \
-    real2 _Z_VAR = (z0); // real2 _pajapapa = {h, alpha};
-
-#define Z_VAR _Z_VAR // (_ROOTS[0])
-
-#define _A_COEF(z, c, A, B) (-((z) + (A) * ((z) + cdiv((c), csq(z)))) / (1 + (B)))
-
-#define NEXT_POINT(c, seq_size, rng_state)                  \
-    {                                                       \
-        if (seq_size > 0) {                                 \
-            _SEQ_POS %= (seq_size);                         \
-            _ROOT_NUM = seq[_SEQ_POS++];                    \
-        } else {                                            \
-            _ROOT_NUM = RANDOM_ROOT(rng_state);             \
-        }                                                   \
-        int errcode = solve_cubic(                                        \
-            _A_COEF(Z_VAR, (c), _AB.s0, _AB.s1),            \
-            ZERO,                                           \
-            _C_COEF,                                        \
-            _ROOTS                                          \
-        );                                                  \
-        /*Z_VAR = henon(Z_VAR, _pajapapa.x, _pajapapa.y);*/     \
-        /*Z_VAR = _ROOTS[_ROOT_NUM];*/                          \
-        Z_VAR = errcode == 2 ? _ROOTS[0] : _ROOTS[_ROOT_NUM];                          \
+inline int ns_next_index(newton_state* s) {
+    if (s->seq_size > 0) {
+        s->seq_pos %= s->seq_size;
+        return s->seq[s->seq_pos++];
     }
+    return RANDOM_ROOT(&s->rng_state);
+}
+
+
+inline void ns_next(newton_state* s) {
+    const real2 a = -(
+        s->z + s->alpha * s->h / 3 * (
+            s->z + cdiv(s->c, csq(s->z))
+        )
+    ) / (1 + s->eps);
+    const real2 c = s->c * s->eps / (1 + s->eps);
+
+    int errcode = solve_cubic(a, (real2)(0, 0), c, s->roots);
+
+    s->z = s->roots[errcode == 2 ? 0 : ns_next_index(s)];
+}
 
 
 #endif // __NEWTON_CLH

@@ -51,43 +51,6 @@ inline real2 point_from_id_dense(const real4 bounds) {
     return bounds.s02 + uv * (bounds.s13 - bounds.s02);
 }
 
-inline void put_point(write_only image2d_t image, const int2 coord, const int2 image_size) {
-    // brute-force non-zero radius for point
-    if (POINT_RADIUS > 1) {
-        for (int x = -POINT_RADIUS; x <= POINT_RADIUS; ++x) {
-            for (int y = -POINT_RADIUS; y <= POINT_RADIUS; ++y) {
-                const int2 coord_new = (int2)(coord.x + x, coord.y + y);
-                if (in_image(coord_new, image_size) && (x*x + y*y <= POINT_RADIUS*POINT_RADIUS)) {
-                    write_imagef(image, coord_new, POINT_COLOR);
-                }
-            }
-        }
-    } else if (POINT_RADIUS == 1) {
-        int2 coord_new = (int2)(coord.x, coord.y);
-        write_imagef(image, coord_new, POINT_COLOR);
-
-        coord_new.x = coord.x - 1;
-        if (in_image(coord_new, image_size)) {
-            write_imagef(image, coord_new, POINT_COLOR);
-        }
-        coord_new.x = coord.x + 1;
-        if (in_image(coord_new, image_size)) {
-            write_imagef(image, coord_new, POINT_COLOR);
-        }
-        coord_new.x = coord.x;
-        coord_new.y = coord.y - 1;
-        if (in_image(coord_new, image_size)) {
-            write_imagef(image, coord_new, POINT_COLOR);
-        }
-        coord_new.y = coord.y + 1;
-        if (in_image(coord_new, image_size)) {
-            write_imagef(image, coord_new, POINT_COLOR);
-        }
-    } else {
-        write_imagef(image, coord, POINT_COLOR);
-    }
-}
-
 inline real2 round_point(real2 point, int to_sign) {
     return convert_real2(convert_long2_rtz(point * pow(10.0f, (float)to_sign))) / pow(10.0f, (float)(to_sign));
 }
@@ -116,6 +79,30 @@ inline int pair_eq(real2 p1, real2 p2) {
 
 inline int pair_gt(const real2 p1, const real2 p2) {
     return !(pair_lt(p1, p2) || pair_eq(p1, p2));
+}
+
+int binary_search(int, const global real*, real2);
+int binary_search(int size, const global real* arr, real2 value) {
+    int l = 0, r = size;
+
+    while (l < r) {
+        const int mid = (r + l) / 2;
+        const real2 mid_value = vload2(mid, arr);
+
+        if (pair_eq(mid_value, value)) {
+            return mid;
+        }
+        if (r == l + 1) {
+            return -1;
+        }
+        if (pair_lt(mid_value, value)) {
+            l = mid;
+        } else {
+            r = mid;
+        }
+    }
+
+    return (r + l) / 2;
 }
 
 #endif // __UTIL_CLH

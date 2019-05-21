@@ -102,7 +102,7 @@ inline real2 unity_ccbrt_2_mul(const real2 a) {
 // attention to things such as multiplying by unity root
 
 // solve_cubic -- general case
-void solve_depressed_cubic(real2 p, real2 q, real2 roots[3]) {
+inline void solve_depressed_cubic(real2 p, real2 q, real2 roots[3]) {
     const real2 d = csqrt1(csq(q / 2) + ccb(p / 3));
 
     real2 u = ccbrt1(-q / 2 + d);
@@ -126,7 +126,7 @@ inline void solve_depressed_cubic_b_c_zeros(real2 a, real2 roots[3]) {
 }
 
 // solve_cubic -- real p, q
-void solve_depressed_real_cubic(real p, real q, real2 roots[3]) {
+inline void solve_depressed_real_cubic(real p, real q, real2 roots[3]) {
     real d = q*q / 4 + p*p*p / 27;
     if        (d > 0) { // "classical" case
         d = sqrt(d);

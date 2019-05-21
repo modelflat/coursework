@@ -48,26 +48,28 @@ kernel void compute_points(
 
     global ulong* result
 ) {
-    uint2 rng_state;
-    init_state(seed, &rng_state);
-
     // NOTE flipped y
     const int2 coord = COORD_2D_INV_Y;
     result += (coord.y * get_global_size(0) + coord.x) * iter;
 
     const real2 param = point_from_id_dense(bounds);
 
-    INIT_VARIABLES(z0, c, param.x, param.y);
-//    INIT_VARIABLES(z0, c, param.x, 1);
+    newton_state state;
+    ns_init(
+        &state,
+        z0, c, param.x,
+        //1,
+        param.y,
+        seed, seq_size, seq
+    );
 
     for (int i = 0; i < skip; ++i) {
-        NEXT_POINT(c, seq_size, &rng_state);
+        ns_next(&state);
     }
 
     for (int i = 0; i < iter; ++i) {
-        NEXT_POINT(c, seq_size, &rng_state);
-//        result[i] = float2(Z_VAR);
-        result[i] = as_ulong(convert_int2_rtz(Z_VAR / tol));
+        ns_next(&state);
+        result[i] = as_ulong(convert_int2_rtz(state.z / tol));
     }
 }
 
@@ -87,82 +89,10 @@ kernel void draw_periods(
     points += (coord.y * size_x + coord.x) * num_points;
 
     int unique = count_unique(points, num_points, 1e-4);
-    float h = (unique % 23) / (float)(22);
-    float v = 1.0 - (unique / (float)(num_points));
 
-    float3 hsvcolor = (float3)(240.0 * h, 0.8, v);
-
-    float3 color = color_for_count(unique, num_points);//hsv2rgb(hsvcolor);
+    float3 color = color_for_count(unique, num_points);
 
     periods[coord.y * size_x + coord.x] = unique;
-    // NOTE flipped y to correspond to image coordinates (top left (0,0))
-    write_imagef(out, COORD_2D_INV_Y, (float4)(color, 1.0));
-}
-
-
-//
-kernel void compute_points_lossless(
-    const real2 z0,
-    const real2 c,
-
-    const real4 bounds,
-
-    const int skip,
-    const int iter,
-    const float tol,
-
-    // root selection
-    // seed
-    const ulong seed,
-
-    // root sequence size and contents
-    const int seq_size,
-    const global int* seq,
-
-    global real* result
-) {
-    uint2 rng_state;
-    init_state(seed, &rng_state);
-
-    // NOTE flipped y
-    const int2 coord = COORD_2D_INV_Y;
-    result += 2 * (coord.y * get_global_size(0) + coord.x) * iter;
-
-    const real2 param = point_from_id_dense(bounds);
-
-    INIT_VARIABLES(z0, c, param.x, param.y);
-//    INIT_VARIABLES(z0, c, param.x, 0);
-
-    for (int i = 0; i < skip; ++i) {
-        NEXT_POINT(c, seq_size, &rng_state);
-    }
-
-    for (int i = 0; i < iter; ++i) {
-        NEXT_POINT(c, seq_size, &rng_state);
-        vstore2(Z_VAR, i, result);
-    }
-}
-
-//
-kernel void draw_periods_lossless(
-    const int scale_factor,
-    const int num_points,
-    const global float* color_scheme,
-    global real* points,
-    global int* periods,
-    write_only image2d_t out
-) {
-    // NOTE flipped y to correspond compute_periods
-    const int2 coord = COORD_2D_INV_Y / scale_factor;
-    const int size_x = get_global_size(0) / scale_factor;
-
-    int period = periods[coord.y * size_x + coord.x];
-
-    float h = (period % 23) / (float)(22);
-    float v = 1.0 - (period / (float)(num_points));
-    float3 hsvcolor = (float3)(240.0 * h, 0.8, v);
-
-    float3 color = hsv2rgb(hsvcolor);
 
     // NOTE flipped y to correspond to image coordinates (top left (0,0))
     write_imagef(out, COORD_2D_INV_Y, (float4)(color, 1.0));

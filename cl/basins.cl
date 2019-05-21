@@ -1,30 +1,6 @@
 #include "newton.clh"
 #include "util.clh"
 
-int binary_search(int, const global real*, real2);
-int binary_search(int size, const global real* arr, real2 value) {
-    int l = 0, r = size;
-
-    while (l < r) {
-        const int mid = (r + l) / 2;
-        const real2 mid_value = vload2(mid, arr);
-
-        if (pair_eq(mid_value, value)) {
-            return mid;
-        }
-        if (r == l + 1) {
-            return -1;
-        }
-        if (pair_lt(mid_value, value)) {
-            l = mid;
-        } else {
-            r = mid;
-        }
-    }
-
-    return (r + l) / 2;
-}
-
 // Compute where points would be after N iterations
 kernel void compute_basins(
     const int skip,
@@ -41,21 +17,24 @@ kernel void compute_basins(
 
     global real* endpoints
 ) {
-    uint2 rng_state;
-    init_state(seed, &rng_state);
-
-    // NOTE y flipped
-    const int2 coord = COORD_2D_INV_Y;
-
-    INIT_VARIABLES(point_from_id_dense(bounds), c, h, alpha);
+    newton_state state;
+    ns_init(
+        &state,
+        point_from_id_dense(bounds), c, h, alpha,
+        seed, seq_size, seq
+    );
 
     for (int i = 0; i < skip; ++i) {
-        NEXT_POINT(c, seq_size, &rng_state);
+        ns_next(&state);
     }
 
-    Z_VAR = round_point(Z_VAR, 4);
+    const int2 coord = COORD_2D_INV_Y;
 
-    vstore2(Z_VAR, coord.y * get_global_size(0) + coord.x, endpoints);
+    vstore2(
+        round_point(state.z, 4),
+        coord.y * get_global_size(0) + coord.x,
+        endpoints
+    );
 }
 
 // Draw basins' bounds and color them approximately
