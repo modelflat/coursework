@@ -1,7 +1,7 @@
 #ifndef __COMPLEX_CLH
 #define __COMPLEX_CLH
 
-// #define USE_FLOATS
+//#define USE_FLOATS
 
 #ifndef USE_FLOATS
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
@@ -12,7 +12,8 @@
 #define real2 double2
 #define real4 double4
 #define convert_real2 convert_double2
-#define IS_REAL_CHECK_THRESHOLD 1e-96
+#define IS_REAL_CHECK_THRESHOLD 1e-32
+#define ZERO_CHECK_THRESHOLD 1e-32
 #define SQRT_3_DIV_2 0.866025403784438596
 #define UNITY_ROOT_1 (real2)(-.5, +SQRT_3_DIV_2)
 #define UNITY_ROOT_2 (real2)(-.5, -SQRT_3_DIV_2)
@@ -22,7 +23,8 @@
 #define real2 float2
 #define real4 float4
 #define convert_real2 convert_float2
-#define IS_REAL_CHECK_THRESHOLD 1e-96
+#define IS_REAL_CHECK_THRESHOLD 1e-32f
+#define ZERO_CHECK_THRESHOLD 1e-32f
 #define SQRT_3_DIV_2 0.866025403784438596f
 #define UNITY_ROOT_1 (real2)(-.5f, +SQRT_3_DIV_2)
 #define UNITY_ROOT_2 (real2)(-.5f, -SQRT_3_DIV_2)
@@ -155,7 +157,7 @@ int solve_cubic(real2, real2, real2, real2[3]);
 int solve_cubic(real2 a, real2 b, real2 c, real2 roots[3]) {
 
     int code;
-    if (all(fabs(b) <= 1e-32) && all(fabs(c) <= 1e-32)) {
+    if (all(fabs(b) <= ZERO_CHECK_THRESHOLD) && all(fabs(c) <= ZERO_CHECK_THRESHOLD)) {
         solve_depressed_cubic_b_c_zeros(a, roots);
         code = 2;
     } else {

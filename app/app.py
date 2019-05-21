@@ -1,14 +1,13 @@
 import time
+from collections import defaultdict
 
 import numpy
 from PyQt5.QtWidgets import QLabel, QLineEdit, QCheckBox, QPushButton, QComboBox
 
 import config as cfg
-from core.ui import SimpleApp, createSlider
 
 from core import ifs_fractal as ifs
-from core.fast_box_counting import FastBoxCounting
-from core.ui import stack
+from core.ui import SimpleApp, createSlider, stack
 from core.utils import blank_image
 
 
@@ -22,6 +21,8 @@ class CourseWork(SimpleApp):
 
         # wrapper around all the OpenCL code
         self.ifs = ifs.IFSFractal(self.ctx, (512, 512))
+
+        self.default_args = defaultdict(lambda: None)
 
         # left widget is for parameter-related stuff
         self.left_wgt = ifs.make_param_wgt(cfg.h_bounds, cfg.alpha_bounds, cfg.param_map_image_shape)
@@ -55,7 +56,6 @@ class CourseWork(SimpleApp):
         self.period_map = None
 
         self.root_seq_edit = QLineEdit()
-        self.box_counter = FastBoxCounting(self.ctx)
 
         self.random_seq = None
 
@@ -165,13 +165,9 @@ class CourseWork(SimpleApp):
     def draw_basins(self, *_, algo="b"):
         h, alpha = self.left_wgt.value()
 
-        # TODO why? probably some bug in parameter computation
-        # alpha = cfg.alpha_bounds[1] - alpha
-
-        # print("Drawing basins for h = {:.6f}, alpha = {:.6f}".format(h, alpha))
-
         image = self.ifs.draw_basins(
-            self.queue,
+            default_args=self.default_args,
+            queue=self.queue,
             skip=cfg.basins_skip,
             h=h, alpha=alpha, c=cfg.C,
             bounds=cfg.phase_shape,
@@ -192,7 +188,8 @@ class CourseWork(SimpleApp):
             z0 = cfg.param_map_z0
 
         image, periods = self.ifs.draw_parameter_map(
-            self.queue,
+            default_args=self.default_args,
+            queue=self.queue,
             skip=cfg.param_map_skip,
             iter=cfg.param_map_iter,
             z0=z0, c=cfg.C,
@@ -200,7 +197,6 @@ class CourseWork(SimpleApp):
             param_bounds=(*cfg.h_bounds, *cfg.alpha_bounds),
             root_seq=self.parse_root_sequence(),
             resolution=cfg.param_map_resolution,
-            lossless=cfg.param_map_lossless
         )
         print("Computed parameter map in {:.3f} s".format(time.perf_counter() - t))
 
@@ -211,7 +207,8 @@ class CourseWork(SimpleApp):
         h, alpha = self.left_wgt.value()
 
         image = self.ifs.draw_phase_portrait(
-            self.queue,
+            default_args=self.default_args,
+            queue=self.queue,
             skip=cfg.phase_skip,
             iter=cfg.phase_iter,
             h=h, alpha=alpha,
@@ -226,7 +223,7 @@ class CourseWork(SimpleApp):
         )
         self.right_wgt.setImage(image)
 
-        D = self.box_counter.compute(self.queue, self.ifs.img[1])
+        D = self.ifs.compute_d(self.queue)
 
         self.d_label.setText("D = {:.3f}".format(D))
 
@@ -253,15 +250,17 @@ class CourseWork(SimpleApp):
         z0 = cfg.bif_tree_z0
 
         image = self.ifs.draw_bif_tree(
-            self.queue,
+            default_args=self.default_args,
+            queue=self.queue,
             skip=cfg.bif_tree_skip,
             iter=cfg.bif_tree_iter,
             z0=z0,
             c=cfg.C,
             var_id=0,
-            param_properties=param_properties,
             root_seq=self.parse_root_sequence(),
-            var_min=-8, var_max=8
+            var_min=-3,
+            var_max=3,
+            **param_properties
         )
         self.left_wgt.setImage(image.copy())
 

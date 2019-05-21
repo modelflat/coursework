@@ -81,7 +81,7 @@ kernel void newton_fractal(
     newton_state state;
     ns_init(
         &state,
-        use_single_point ? z0 : point_from_id(bounds) / 1.5,
+        use_single_point ? z0 : 3 * point_from_id(bounds) / 4,
         c, h, alpha, seed, seq_size, seq
     );
 

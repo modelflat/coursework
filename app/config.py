@@ -2,14 +2,15 @@
 
 # range for varying `h`
 # h_bounds = (-0.5, 0.5)
-h_bounds = (-10, 10)
+# h_bounds = (-10, 10)
+h_bounds = (-6, 0)
 
 # range for varying `alpha`
 # alpha_bounds = (0, 2)
-alpha_bounds = (0.0, 1.0)
+alpha_bounds = (0, 1)
 
 # `c` constant
-C = complex(1, 0)
+C = complex(-0.5, 0.5)
 
 
 ## parameter map params
@@ -19,13 +20,13 @@ param_map_image_shape = (512, 512)
 
 # skip iters on param map
 # param_map_skip = 1 << 4
-param_map_skip = 1 << 14
+param_map_skip = 1 << 6
 
 # iters on param map
-param_map_iter = 1 << 10
+param_map_iter = 1 << 6
 
 # same point detection tol
-param_map_tolerance = 1e-6
+param_map_tolerance = 1e-4
 
 # starting point for param map
 param_map_z0 = complex(0.5, 0.0)
@@ -79,6 +80,6 @@ basins_skip = param_map_skip + param_map_iter - 1
 
 ## bif tree
 
-bif_tree_skip = 150
+bif_tree_skip = 1 << 10
 bif_tree_iter = 1 << 10
 bif_tree_z0 = complex(-0.1, 0.1)
