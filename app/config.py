@@ -7,7 +7,7 @@ h_bounds = (-6, 0)
 
 # range for varying `alpha`
 # alpha_bounds = (0, 2)
-alpha_bounds = (0, 1)
+alpha_bounds = (0.999, 1.000)
 
 # `c` constant
 C = complex(-0.5, 0.5)
@@ -20,7 +20,7 @@ param_map_image_shape = (512, 512)
 
 # skip iters on param map
 # param_map_skip = 1 << 4
-param_map_skip = 1 << 6
+param_map_skip = 1 << 8
 
 # iters on param map
 param_map_iter = 1 << 6
@@ -73,7 +73,7 @@ phase_z0 = None
 
 basins_image_shape = phase_image_shape
 
-basins_resolution = 4
+basins_resolution = 2
 
 basins_skip = param_map_skip + param_map_iter - 1
 

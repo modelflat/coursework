@@ -197,6 +197,7 @@ class CourseWork(SimpleApp):
             param_bounds=(*cfg.h_bounds, *cfg.alpha_bounds),
             root_seq=self.parse_root_sequence(),
             resolution=cfg.param_map_resolution,
+            method="fast"
         )
         print("Computed parameter map in {:.3f} s".format(time.perf_counter() - t))
 

@@ -3,7 +3,7 @@
 
 #define COORD_2D_INV_Y (int2)(get_global_id(0), get_global_size(1) - get_global_id(1) - 1)
 
-inline float3 hsv2rgb(float3 hsv) {
+inline float4 hsv2rgb(float3 hsv) {
     const float c = hsv.y * hsv.z;
     const float x = c * (1 - fabs(fmod( hsv.x / 60, 2 ) - 1));
     float3 rgb;
@@ -20,19 +20,7 @@ inline float3 hsv2rgb(float3 hsv) {
     } else {
         rgb = (float3)(c, 0, x);
     }
-    return (rgb + (hsv.z - c));
-}
-
-inline int2 to_size(real2 point, const real4 bounds, const int2 size) {
-    point = (point - bounds.s02) / (bounds.s13 - bounds.s02);
-    return (int2)(
-        (int)(point.x * size.x),
-        size.y - (int)(point.y * size.y)
-    );
-}
-
-inline bool in_image(const int2 coord, const int2 size) {
-    return coord.x < size.x && coord.y < size.y && coord.x >= 0 && coord.y >= 0;
+    return (float4)(rgb + (hsv.z - c), 1.0);
 }
 
 inline real2 point_from_id(const real4 bounds) {
@@ -49,10 +37,6 @@ inline real2 point_from_id_dense(const real4 bounds) {
         (real)(get_global_id(1)) / (real)(get_global_size(1) - 1)
     };
     return bounds.s02 + uv * (bounds.s13 - bounds.s02);
-}
-
-inline real2 round_point(real2 point, int to_sign) {
-    return convert_real2(convert_long2_rtz(point * pow(10.0f, (float)to_sign))) / pow(10.0f, (float)(to_sign));
 }
 
 // C++ STL pair operator< implementation

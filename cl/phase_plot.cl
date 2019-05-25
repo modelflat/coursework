@@ -5,6 +5,11 @@
 #define POINT_COLOR (float4)(0.0, 0.0, 0.0, 1.0)
 
 
+inline bool in_rect(const int2 coord, const int2 size) {
+    return coord.x < size.x && coord.y < size.y && coord.x >= 0 && coord.y >= 0;
+}
+
+
 void put_point(write_only image2d_t, const int2, const int2);
 void put_point(write_only image2d_t image, const int2 coord, const int2 image_size) {
     // brute-force non-zero radius for point
@@ -12,7 +17,7 @@ void put_point(write_only image2d_t image, const int2 coord, const int2 image_si
         for (int x = -POINT_RADIUS; x <= POINT_RADIUS; ++x) {
             for (int y = -POINT_RADIUS; y <= POINT_RADIUS; ++y) {
                 const int2 coord_new = (int2)(coord.x + x, coord.y + y);
-                if (in_image(coord_new, image_size) && (x*x + y*y <= POINT_RADIUS*POINT_RADIUS)) {
+                if (in_rect(coord_new, image_size) && (x*x + y*y <= POINT_RADIUS*POINT_RADIUS)) {
                     write_imagef(image, coord_new, POINT_COLOR);
                 }
             }
@@ -22,25 +27,34 @@ void put_point(write_only image2d_t image, const int2 coord, const int2 image_si
         write_imagef(image, coord_new, POINT_COLOR);
 
         coord_new.x = coord.x - 1;
-        if (in_image(coord_new, image_size)) {
+        if (in_rect(coord_new, image_size)) {
             write_imagef(image, coord_new, POINT_COLOR);
         }
         coord_new.x = coord.x + 1;
-        if (in_image(coord_new, image_size)) {
+        if (in_rect(coord_new, image_size)) {
             write_imagef(image, coord_new, POINT_COLOR);
         }
         coord_new.x = coord.x;
         coord_new.y = coord.y - 1;
-        if (in_image(coord_new, image_size)) {
+        if (in_rect(coord_new, image_size)) {
             write_imagef(image, coord_new, POINT_COLOR);
         }
         coord_new.y = coord.y + 1;
-        if (in_image(coord_new, image_size)) {
+        if (in_rect(coord_new, image_size)) {
             write_imagef(image, coord_new, POINT_COLOR);
         }
     } else {
         write_imagef(image, coord, POINT_COLOR);
     }
+}
+
+
+inline int2 to_size(real2 point, const real4 bounds, const int2 size) {
+    point = (point - bounds.s02) / (bounds.s13 - bounds.s02);
+    return (int2)(
+        (int)(point.x * size.x),
+        size.y - (int)(point.y * size.y) - 1
+    );
 }
 
 
@@ -95,7 +109,7 @@ kernel void newton_fractal(
         for (int i = 0; i < 3; ++i) {
             const int2 coord = to_size(state.roots[i], bounds, image_size);
 
-            if (in_image(coord, image_size)) {
+            if (in_rect(coord, image_size)) {
                 put_point(out, coord, image_size);
                 frozen = 0;
             } else {

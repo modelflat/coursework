@@ -25,6 +25,7 @@ class IFSFractal:
         src = [
             read_file(os.path.join(CL_SOURCE_PATH, "phase_plot.cl")),
             read_file(os.path.join(CL_SOURCE_PATH, "param_map.cl")),
+            read_file(os.path.join(CL_SOURCE_PATH, "fast_param_map.cl")),
             read_file(os.path.join(CL_SOURCE_PATH, "basins.cl")),
             read_file(os.path.join(CL_SOURCE_PATH, "bif_tree.cl")),
         ]
@@ -259,6 +260,41 @@ class IFSFractal:
         self._compute_map(queue, skip, iter, z0, c, tol, param_bounds, root_seq, resolution)
         return self._render_map(queue, iter, resolution)
 
+    def call_fast_parameter_map(
+            self, queue, skip, iter, z0, c, tol, param_bounds,
+            root_seq=None, resolution=1):
+
+        seq_size, seq = prepare_root_seq(self.ctx, root_seq)
+
+        self.prg.fast_param_map(
+            queue, (self.img_shape[0] // resolution, self.img_shape[1] // resolution), None,
+            numpy.int32(resolution),
+            # z0
+            numpy.array((z0.real, z0.imag), dtype=self.real),
+            # c
+            numpy.array((c.real, c.imag), dtype=self.real),
+            # bounds
+            numpy.array(param_bounds, dtype=self.real),
+            # skip
+            numpy.int32(skip),
+            # iter
+            numpy.int32(iter),
+            # tol
+            numpy.float32(tol),
+            # seed
+            self.real(random_seed()),
+            # seq size
+            numpy.int32(seq_size),
+            # seq
+            seq,
+            # result
+            self.img[1]
+        )
+
+        read_image(queue, *self.img, self.img_shape)
+
+        return self.img[0], None
+
     def draw_parameter_map(self, default_args=None, **kwargs):
         queue = get("queue", kwargs, default_args)
         skip = get("skip", kwargs, default_args)
@@ -269,11 +305,19 @@ class IFSFractal:
         param_bounds = get("param_bounds", kwargs, default_args)
         resolution = get("resolution", kwargs, default_args)
         root_seq = get("root_seq", kwargs, default_args)
+        method = get("method", kwargs, default_args)
 
         with self.compute_lock:
-            res = self.call_draw_parameter_map(
-                queue, skip, iter, z0, c, tol, param_bounds, root_seq, resolution
-            )
+            if method == "fast":
+                res = self.call_fast_parameter_map(
+                    queue, skip, iter, z0, c, tol, param_bounds, root_seq, resolution
+                )
+            elif method == "precise":
+                res = self.call_draw_parameter_map(
+                    queue, skip, iter, z0, c, tol, param_bounds, root_seq, resolution
+                )
+            else:
+                raise RuntimeError("No such method")
         return res
 
     def call_draw_basins(

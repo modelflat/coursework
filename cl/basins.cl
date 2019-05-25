@@ -95,15 +95,7 @@ kernel void draw_basins(
     av_len /= 4;
 
     float mod = 0.005 / length(end - origin);
-//    float mod = length(end - origin);
-
     float col = 240;
-
-    if (mod > 1) {
-//        printf("STABLE: %.6f, %.6f\n", origin.x, origin.y);
-
-    }
-
     float value = 0.8;
 
     real arg = atan2(end.y, end.x) + PI;
@@ -116,40 +108,9 @@ kernel void draw_basins(
         col = 120;
     }
 
-//    if (end.x >= 0 && end.y >= 0) {
-//        col = 0;
-//        if (!(origin.x >= 0 && origin.y >= 0)) {
-//            mod = 0.5;
-//        }
-//    }
-//    else if (end.x >= 0 && end.y < 0) {
-//        col = 60;
-//        if (!(origin.x >= 0 && origin.y < 0)) {
-//            mod = 0.5;
-//        }
-//    }
-//    else if (end.x < 0 && end.y >= 0) {
-//        col = 120;
-//        if (!(origin.x < 0 && origin.y >= 0)) {
-//            mod = 0.5;
-//        }
-//    }
-//    else if (end.x < 0 && end.y < 0) {
-//        col = 180;
-//        if (!(origin.x < 0 && origin.y < 0)) {
-//            mod = 0.5;
-//        }
-//    }
+    float4 color = hsv2rgb((float3)(col, value, edge));
 
-    float3 color = hsv2rgb((float3)(
-        col,
-        value,
-        edge
-    ));
-
-    write_imagef(image, COORD_2D_INV_Y, (float4)(color, 1.0));
-//    write_imagef(image, (int2)(coord.x, get_global_size(1) - coord.y - 1), (float4)(color, 1.0));
-//    write_imagef(image, (int2)(get_global_size(1) - coord.y - 1, coord.x), (float4)(color, 1.0));
+    write_imagef(image, COORD_2D_INV_Y, color);
 }
 
 // Draw basins in precise colors
@@ -170,7 +131,7 @@ kernel void draw_basins_colored(
     const int v = 1 - (int)(color_idx == -1 || length(val) < DETECTION_PRECISION);
     const float ratio = (float)(color_idx) / (float)(attraction_points_count);
 
-    float3 color = hsv2rgb((float3)(240.0 * ratio, 1.0, v));
+    float4 color = hsv2rgb((float3)(240.0 * ratio, 1.0, v));
 
-    write_imagef(map, COORD_2D_INV_Y, (float4)(color, 1.0));
+    write_imagef(map, COORD_2D_INV_Y, color);
 }

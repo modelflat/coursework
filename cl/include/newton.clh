@@ -27,6 +27,7 @@ inline void ns_init(
     s->h = h;
     s->alpha = alpha;
     s->eps = -h * (1 - alpha) / 3;
+    //            -h / 6
     init_state(seed, &s->rng_state);
     s->seq_pos = 0;
     s->seq_size = seq_size;
@@ -49,7 +50,10 @@ inline void ns_next(newton_state* s) {
             s->z + cdiv(s->c, csq(s->z))
         )
     ) / (1 + s->eps);
+    // -(z + a*h/3 * (z + cd))
+    // / (1 - h/6)
     const real2 c = s->c * s->eps / (1 + s->eps);
+    //               c * h / (h - 6)
 
     int errcode = solve_cubic(a, (real2)(0, 0), c, s->roots);
 

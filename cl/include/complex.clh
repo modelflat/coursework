@@ -120,13 +120,6 @@ inline void solve_depressed_cubic(real2 p, real2 q, real2 roots[3]) {
     roots[2] = u + v;
 }
 
-// solve cubic -- D = 0
-inline void solve_depressed_cubic_b_c_zeros(real2 a, real2 roots[3]) {
-    roots[0] = -a;
-    roots[1] = 0;
-    roots[2] = 0;
-}
-
 // solve_cubic -- real p, q
 inline void solve_depressed_real_cubic(real p, real q, real2 roots[3]) {
     real d = q*q / 4 + p*p*p / 27;
@@ -155,14 +148,16 @@ inline void solve_depressed_real_cubic(real p, real q, real2 roots[3]) {
 // solves cubic equation given in form z**3 + a*z**2 + b*z + c = 0
 int solve_cubic(real2, real2, real2, real2[3]);
 int solve_cubic(real2 a, real2 b, real2 c, real2 roots[3]) {
-
     int code;
     if (all(fabs(b) <= ZERO_CHECK_THRESHOLD) && all(fabs(c) <= ZERO_CHECK_THRESHOLD)) {
-        solve_depressed_cubic_b_c_zeros(a, roots);
+        roots[0] = -a;
+        roots[1] = +0;
+        roots[2] = +0;
         code = 2;
     } else {
         const real2 p = b - csq(a) / 3;
         const real2 q = (2 * ccb(a) - 9 * cmul(a, b)) / 27 + c;
+
         if (is_real(p) && is_real(q)) {
             solve_depressed_real_cubic(p.x, q.x, roots);
             code = 0;

@@ -2,11 +2,7 @@
 #include "heapsort.clh"
 #include "util.clh"
 
-inline real2 round_point(real2 point, int to_sign) {
-    return convert_real2(convert_long2_rtz(point * pow(10.0f, (float)to_sign))) / pow(10.0f, (float)(to_sign));
-}
-
-inline float3 color_for_count(int count, int total) {
+inline float3 _color_for_count(int count, int total) {
     if (count == total) {
         return 0.25;
     }
@@ -31,8 +27,8 @@ inline float3 color_for_count(int count, int total) {
     }
 }
 
-// Compute samples for parameter map
-kernel void compute_points(
+kernel void fast_param_map(
+    const int scale_factor,
     const real2 z0,
     const real2 c,
 
@@ -50,20 +46,18 @@ kernel void compute_points(
     const int seq_size,
     const global int* seq,
 
-    global ulong* result
+    // output
+//    global int* periods,
+    write_only image2d_t out
 ) {
     // NOTE flipped y
     const int2 coord = COORD_2D_INV_Y;
-    result += (coord.y * get_global_size(0) + coord.x) * iter;
-
     const real2 param = point_from_id_dense(bounds);
 
     newton_state state;
     ns_init(
         &state,
-        z0, c, param.x,
-        //1,
-        param.y,
+        z0, c, param.x, param.y,
         seed, seq_size, seq
     );
 
@@ -71,33 +65,20 @@ kernel void compute_points(
         ns_next(&state);
     }
 
+    const real2 base = state.z;
+
+    int p = 0;
     for (int i = 0; i < iter; ++i) {
         ns_next(&state);
-        result[i] = as_ulong(convert_int2_rtz(state.z / tol));
+        if (all(fabs(base - state.z) < tol)) {
+            p = i;
+            break;
+        }
     }
-}
 
-// Draw parameter map using computed samples
-kernel void draw_periods(
-    const int scale_factor,
-    const int num_points,
-    const global float* color_scheme,
-    global ulong* points,
-    global int* periods,
-    write_only image2d_t out
-) {
-    // NOTE flipped y to correspond compute_periods
-    const int2 coord = COORD_2D_INV_Y / scale_factor;
-    const int size_x = get_global_size(0) / scale_factor;
+    float3 color = _color_for_count(p + 1, iter);
 
-    points += (coord.y * size_x + coord.x) * num_points;
-
-    int unique = count_unique(points, num_points, 1e-4);
-
-    float3 color = color_for_count(unique, num_points);
-
-    periods[coord.y * size_x + coord.x] = unique;
-
-    // NOTE flipped y to correspond to image coordinates (top left (0,0))
-    write_imagef(out, COORD_2D_INV_Y, (float4)(color, 1.0));
+    write_imagef(
+        out, coord, (float4)(color, 1.0)
+    );
 }
