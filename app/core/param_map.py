@@ -7,10 +7,9 @@ from .utils import prepare_root_seq, random_seed, alloc_image, alloc_like, real_
 
 class ParameterMap:
 
-    def __init__(self, ctx, img):
+    def __init__(self, ctx):
         self.ctx = ctx
         self.prg = build_program_from_file(ctx, ("param_map.cl", "fast_param_map.cl"))
-        self.img = img
         self.map_points = None
         self._dummy_img = alloc_image(ctx, (1, 1))[1]
 
@@ -122,12 +121,8 @@ class ParameterMap:
 
         return img.read(queue), periods
 
-    def compute(self, queue, skip, iter, z0, c, tol, bounds, root_seq,
-                method="fast", scale_factor=None,
-                img=None, periods_shape=None, seed=None):
-        if img is None:
-            img = self.img
-
+    def compute(self, queue, img, skip, iter, z0, c, tol, bounds, root_seq,
+                method="fast", scale_factor=None, periods_shape=None, seed=None):
         if method == "fast":
             if scale_factor is not None:
                 print("[warn] scale_factor is ignored")

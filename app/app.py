@@ -34,23 +34,20 @@ def make_param_wgt(h_bounds, alpha_bounds, image_shape):
     )
 
 
-
 class CourseWork(SimpleApp):
 
     def __init__(self):
         super().__init__("Coursework")
 
         self.left_image = CLImg(self.ctx, (512, 512))
-        self.param_map = ParameterMap(self.ctx, self.left_image)
-        self.bif_tree = BifTree(self.ctx, self.left_image)
+        self.param_map = ParameterMap(self.ctx)
+        self.bif_tree = BifTree(self.ctx)
 
         self.right_image = CLImg(self.ctx, (512, 512))
-        self.basins = BasinsOfAttraction(self.ctx, self.right_image)
-        self.phase_plot = PhasePlot(self.ctx, self.right_image)
+        self.basins = BasinsOfAttraction(self.ctx)
+        self.phase_plot = PhasePlot(self.ctx)
 
         self.fbc = FastBoxCounting(self.ctx)
-
-        self.default_args = defaultdict(lambda: None)
 
         # left widget is for parameter-related stuff
         self.left_wgt = make_param_wgt(cfg.h_bounds, cfg.alpha_bounds, cfg.param_map_image_shape)
@@ -96,8 +93,8 @@ class CourseWork(SimpleApp):
 
         self.right_wgts = {
             "phase":  self.draw_phase,
-            "basins": lambda: self.draw_basins(algo="b"),
-            "basins colored": lambda: self.draw_basins(algo="c")
+            "basins dev": lambda: self.draw_basins(method="dev"),
+            "basins host": lambda: self.draw_basins(method="host")
         }
         self.right_mode_cmb.addItems(self.right_wgts.keys())
 
@@ -190,17 +187,16 @@ class CourseWork(SimpleApp):
     def draw_param_placeholder(self):
         self.left_wgt.setImage(blank_image((512, 512)))
 
-    def draw_basins(self, *_, algo="b"):
+    def draw_basins(self, *_, method="b"):
         h, alpha = self.left_wgt.value()
 
         image = self.basins.compute(
-            # default_args=self.default_args,
-            queue=self.queue,
+            queue=self.queue, img=self.right_image,
             skip=cfg.basins_skip,
             h=h, alpha=alpha, c=cfg.C,
             bounds=cfg.phase_shape,
             root_seq=self.parse_root_sequence(),
-            method="dev",
+            method=method,
             scale_factor=cfg.basins_resolution,
         )
         self.right_wgt.setImage(image)
@@ -217,6 +213,7 @@ class CourseWork(SimpleApp):
 
         image, periods = self.param_map.compute(
             queue=self.queue,
+            img=self.left_image,
             skip=cfg.param_map_skip,
             iter=cfg.param_map_iter,
             z0=z0, c=cfg.C,
@@ -225,7 +222,6 @@ class CourseWork(SimpleApp):
             root_seq=self.parse_root_sequence(),
             method="fast",
             scale_factor=cfg.param_map_resolution,
-            img=self.left_image
         )
 
         print("Computed parameter map in {:.3f} s".format(time.perf_counter() - t))
@@ -238,6 +234,7 @@ class CourseWork(SimpleApp):
 
         image = self.phase_plot.compute(
             queue=self.queue,
+            img=self.right_image,
             skip=cfg.phase_skip,
             iter=cfg.phase_iter,
             h=h, alpha=alpha,
@@ -280,6 +277,7 @@ class CourseWork(SimpleApp):
 
         image = self.bif_tree.compute(
             queue=self.queue,
+            img=self.left_image,
             skip=cfg.bif_tree_skip,
             iter=cfg.bif_tree_iter,
             z0=z0,

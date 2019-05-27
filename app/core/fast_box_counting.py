@@ -26,81 +26,15 @@ from matplotlib.pyplot import imread
 from scipy.stats import linregress
 from time import perf_counter
 
+from core import build_program_from_file
 from .utils import alloc_image, create_context_and_queue
-
-
-SOURCE = r"""
-constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
-
-inline bool is_not_empty(uint4 color) {
-    return color.x == 0 && color.y == 0 && color.z == 0;
-}
-
-inline ulong intercalate(uint2 coord) {
-    ulong v = 0;
-    for (uint i = 0, mask = 1; i < 32; mask <<= 1, ++i) {
-        v |= (((coord.x & mask) << (i + 1)) | (coord.y & mask) << i);
-    }
-    return v;
-}
-
-kernel void intercalate_coord(
-    const ulong empty_box_inted_value,
-    read_only image2d_t image,
-    global ulong* intercalated_coords
-) {
-    const int2 coord = { get_global_id(0), get_global_id(1) };
-    intercalated_coords += coord.y * get_global_size(0) + coord.x;
-    
-    const uint4 color = read_imageui(image, sampler, coord);
-    if (is_not_empty(color)) {
-        *intercalated_coords = intercalate(as_uint2(coord));
-    } else {
-        *intercalated_coords = empty_box_inted_value;
-    }
-}
-
-kernel void count_non_empty(
-    const ulong empty_box_inted_value,
-    const int box_size,
-    const uint strip_bits,
-    const int intercalated_coords_len,
-    const global ulong* intercalated_coords,
-    global int* black_count,
-    global int* gray_count   
-) {
-    const uint2 coord = { get_global_id(0), get_global_id(1) };
-    const int flat_coord = coord.y * get_global_size(0) + coord.x;
-    
-    ulong value = intercalated_coords[flat_coord];
-    if (value != empty_box_inted_value) {
-        value >>= strip_bits;
-        if (flat_coord == 0 || (intercalated_coords[flat_coord - 1] >> strip_bits) != value) {
-            // the first element of chunk
-            if (flat_coord + (box_size - 1) < intercalated_coords_len) {
-                if (value == (intercalated_coords[flat_coord + (box_size - 1)] >> strip_bits)) {
-                    // black box
-                    atomic_inc(black_count);
-                } else {
-                    // gray box
-                    atomic_inc(gray_count);
-                }
-            } else {
-                // gray box
-                atomic_inc(gray_count);   
-            }
-        }
-    }
-}
-
-"""
 
 
 class FastBoxCounting:
 
     def __init__(self, ctx: cl.Context):
         self.ctx = ctx
-        self.program = cl.Program(ctx, SOURCE).build()
+        self.prg = build_program_from_file(ctx, "fast_box_counting.cl")
 
     def compute(self, queue, image, verbose=False):
         empty_box_inted_value = 2 ** 64 - 1
@@ -109,7 +43,7 @@ class FastBoxCounting:
         intercalated_coords = numpy.empty(numpy.prod(image.shape), dtype=numpy.uint64)
         intercalated_coords_dev = cl.Buffer(self.ctx, cl.mem_flags.WRITE_ONLY,
                                             size=intercalated_coords.nbytes)
-        self.program.intercalate_coord(
+        self.prg.intercalate_coord(
             queue, image.shape, None,
             numpy.uint64(empty_box_inted_value),
             image,
@@ -138,7 +72,7 @@ class FastBoxCounting:
             cl.enqueue_copy(queue, black_count_dev, black_count)
             cl.enqueue_copy(queue, gray_count_dev, gray_count)
 
-            self.program.count_non_empty(
+            self.prg.count_non_empty(
                 queue, image.shape, None,
                 numpy.uint64(empty_box_inted_value),
                 numpy.int32(box_size),

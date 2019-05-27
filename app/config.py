@@ -20,10 +20,10 @@ param_map_image_shape = (512, 512)
 
 # skip iters on param map
 # param_map_skip = 1 << 4
-param_map_skip = 1 << 14
+param_map_skip = 1 << 3
 
 # iters on param map
-param_map_iter = 1 << 6
+param_map_iter = 1 << 3
 
 # same point detection tol
 param_map_tolerance = 1e-4
@@ -75,7 +75,7 @@ basins_image_shape = phase_image_shape
 
 basins_resolution = 2
 
-basins_skip = param_map_skip + param_map_iter - 1
+basins_skip = 10*param_map_skip + param_map_iter - 1
 
 
 ## bif tree
