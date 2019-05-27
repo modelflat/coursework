@@ -20,7 +20,7 @@ param_map_image_shape = (512, 512)
 
 # skip iters on param map
 # param_map_skip = 1 << 4
-param_map_skip = 1 << 8
+param_map_skip = 1 << 14
 
 # iters on param map
 param_map_iter = 1 << 6
@@ -80,6 +80,6 @@ basins_skip = param_map_skip + param_map_iter - 1
 
 ## bif tree
 
-bif_tree_skip = 1 << 10
-bif_tree_iter = 1 << 10
+bif_tree_skip = 1 << 16
+bif_tree_iter = 1 << 8
 bif_tree_z0 = complex(-0.1, 0.1)

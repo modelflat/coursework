@@ -28,7 +28,7 @@ inline float3 _color_for_count(int count, int total) {
 }
 
 kernel void fast_param_map(
-    const int scale_factor,
+    const int render_image,
     const real2 z0,
     const real2 c,
 
@@ -47,7 +47,7 @@ kernel void fast_param_map(
     const global int* seq,
 
     // output
-//    global int* periods,
+    global int* periods,
     write_only image2d_t out
 ) {
     // NOTE flipped y
@@ -67,7 +67,7 @@ kernel void fast_param_map(
 
     const real2 base = state.z;
 
-    int p = 0;
+    int p = iter;
     for (int i = 0; i < iter; ++i) {
         ns_next(&state);
         if (all(fabs(base - state.z) < tol)) {
@@ -76,9 +76,12 @@ kernel void fast_param_map(
         }
     }
 
-    float3 color = _color_for_count(p + 1, iter);
+    periods[coord.y * get_global_size(0) + coord.x] = p + 1;
 
-    write_imagef(
-        out, coord, (float4)(color, 1.0)
-    );
+    if (render_image) {
+        float3 color = _color_for_count(p + 1, iter);
+        write_imagef(
+            out, coord, (float4)(color, 1.0)
+        );
+    }
 }

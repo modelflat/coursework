@@ -2,9 +2,9 @@
 #include "heapsort.clh"
 #include "util.clh"
 
-inline real2 round_point(real2 point, int to_sign) {
-    return convert_real2(convert_long2_rtz(point * pow(10.0f, (float)to_sign))) / pow(10.0f, (float)(to_sign));
-}
+//inline real2 round_point(real2 point, int to_sign) {
+//    return convert_real2(convert_long2_rtz(point * pow(10.0f, (float)to_sign))) / pow(10.0f, (float)(to_sign));
+//}
 
 inline float3 color_for_count(int count, int total) {
     if (count == total) {
@@ -81,7 +81,6 @@ kernel void compute_points(
 kernel void draw_periods(
     const int scale_factor,
     const int num_points,
-    const global float* color_scheme,
     global ulong* points,
     global int* periods,
     write_only image2d_t out

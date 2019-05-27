@@ -89,4 +89,8 @@ int binary_search(int size, const global real* arr, real2 value) {
     return (r + l) / 2;
 }
 
+inline real2 round_point(real2 point, int to_sign) {
+    return convert_real2(convert_long2_rtz(point * pow(10.0f, (float)to_sign))) / pow(10.0f, (float)(to_sign));
+}
+
 #endif // __UTIL_CLH

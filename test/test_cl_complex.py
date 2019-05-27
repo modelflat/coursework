@@ -2,7 +2,8 @@ import numpy
 import pyopencl as cl
 import unittest
 
-from app.core.ifs_fractal import CL_INCLUDE_PATH, read_file, copy_dev, alloc_like
+from app.core import CL_INCLUDE_PATH, read_file
+from app.core.utils import copy_dev, alloc_like
 
 
 TEST_KERNEL = r"""

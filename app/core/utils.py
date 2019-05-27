@@ -96,3 +96,24 @@ def prepare_root_seq(ctx, root_seq):
 
     seq_buf = cl.Buffer(ctx, flags=cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=seq)
     return seq.size if root_seq is not None else 0, seq_buf
+
+
+class CLImg:
+
+    host = property(lambda self: self.img[0])
+    dev = property(lambda self: self.img[1])
+
+    def __init__(self, ctx, shape):
+        self.ctx = ctx
+        self.img = alloc_image(ctx, shape)
+        self.shape = shape
+
+    def read(self, queue):
+        read_image(queue, self.img[0], self.img[1], self.shape)
+        return self.img[0]
+
+    def clear(self, queue):
+        clear_image(queue, self.img[1], self.shape)
+
+
+real_type = numpy.float64

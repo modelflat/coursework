@@ -3,7 +3,7 @@ import pyopencl as cl
 import unittest
 
 
-from app.core.ifs_fractal import CL_INCLUDE_PATH, read_file
+from app.core import CL_INCLUDE_PATH, read_file
 
 
 TEST_KERNEL = r"""

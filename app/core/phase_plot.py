@@ -1,0 +1,49 @@
+import numpy
+
+from . import build_program_from_file
+from .utils import prepare_root_seq, random_seed
+
+
+class PhasePlot:
+
+    def __init__(self, ctx, img, real_type=numpy.float64):
+        self.ctx = ctx
+        self.prg = build_program_from_file(ctx, "phase_plot.cl")
+        self.img = img
+        self.real = real_type
+
+    def compute(self, queue, skip, iter, h, alpha, c, bounds, grid_size,
+                z0=None, root_seq=None, clear=True, img=None, seed=None):
+
+        if img is None:
+            img = self.img
+
+        if clear:
+            img.clear(queue)
+
+        seq_size, seq = prepare_root_seq(self.ctx, root_seq)
+
+        self.prg.newton_fractal(
+            queue, (grid_size, grid_size) if z0 is None else (1, 1), None,
+
+            numpy.int32(skip),
+            numpy.int32(iter),
+
+            numpy.array(bounds, dtype=self.real),
+
+            numpy.array((c.real, c.imag), dtype=self.real),
+            self.real(h),
+            self.real(alpha),
+
+            numpy.uint64(seed if seed is not None else random_seed()),
+
+            numpy.int32(seq_size),
+            seq,
+
+            numpy.int32(1 if z0 is not None else 0),
+            numpy.array((0, 0) if z0 is None else (z0.real, z0.imag), dtype=self.real),
+
+            img.dev
+        )
+
+        return img.read(queue)

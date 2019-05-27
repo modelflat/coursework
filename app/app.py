@@ -3,15 +3,36 @@ from collections import defaultdict
 
 import numpy
 from PyQt5.QtWidgets import QLabel, QLineEdit, QCheckBox, QPushButton, QComboBox
+from PyQt5.QtCore import Qt
 
 import config as cfg
 
-from core import ifs_fractal as ifs
-from core.ui import SimpleApp, createSlider, stack
-from core.utils import blank_image
-
+from core.basins import BasinsOfAttraction
+from core.bif_tree import BifTree
+from core.fast_box_counting import FastBoxCounting
+from core.param_map import ParameterMap
+from core.phase_plot import PhasePlot
+from core.ui import SimpleApp, createSlider, stack, ParameterizedImageWidget
+from core.utils import blank_image, CLImg
 
 numpy.random.seed(42)
+
+
+def make_phase_wgt(space_shape, image_shape):
+    return ParameterizedImageWidget(
+        space_shape, ("z_real", "z_imag"), shape=(True, True), textureShape=image_shape,
+    )
+
+
+def make_param_wgt(h_bounds, alpha_bounds, image_shape):
+    return ParameterizedImageWidget(
+        bounds=(*h_bounds, *alpha_bounds),
+        names=("h", "alpha"),
+        shape=(True, True),
+        textureShape=image_shape,
+        targetColor=Qt.gray
+    )
+
 
 
 class CourseWork(SimpleApp):
@@ -19,16 +40,23 @@ class CourseWork(SimpleApp):
     def __init__(self):
         super().__init__("Coursework")
 
-        # wrapper around all the OpenCL code
-        self.ifs = ifs.IFSFractal(self.ctx, (512, 512))
+        self.left_image = CLImg(self.ctx, (512, 512))
+        self.param_map = ParameterMap(self.ctx, self.left_image)
+        self.bif_tree = BifTree(self.ctx, self.left_image)
+
+        self.right_image = CLImg(self.ctx, (512, 512))
+        self.basins = BasinsOfAttraction(self.ctx, self.right_image)
+        self.phase_plot = PhasePlot(self.ctx, self.right_image)
+
+        self.fbc = FastBoxCounting(self.ctx)
 
         self.default_args = defaultdict(lambda: None)
 
         # left widget is for parameter-related stuff
-        self.left_wgt = ifs.make_param_wgt(cfg.h_bounds, cfg.alpha_bounds, cfg.param_map_image_shape)
+        self.left_wgt = make_param_wgt(cfg.h_bounds, cfg.alpha_bounds, cfg.param_map_image_shape)
 
         # right widget is for phase-related stuff
-        self.right_wgt = ifs.make_phase_wgt(cfg.phase_shape, cfg.phase_image_shape)
+        self.right_wgt = make_phase_wgt(cfg.phase_shape, cfg.phase_image_shape)
 
         self.h_slider, self.h_slider_wgt = \
             createSlider("real", cfg.h_bounds, withLabel="h = {:2.3f}", labelPosition="top", withValue=0.5)
@@ -165,15 +193,15 @@ class CourseWork(SimpleApp):
     def draw_basins(self, *_, algo="b"):
         h, alpha = self.left_wgt.value()
 
-        image = self.ifs.draw_basins(
-            default_args=self.default_args,
+        image = self.basins.compute(
+            # default_args=self.default_args,
             queue=self.queue,
             skip=cfg.basins_skip,
             h=h, alpha=alpha, c=cfg.C,
             bounds=cfg.phase_shape,
             root_seq=self.parse_root_sequence(),
-            resolution=cfg.basins_resolution,
-            algo=algo
+            method="dev",
+            scale_factor=cfg.basins_resolution,
         )
         self.right_wgt.setImage(image)
 
@@ -187,18 +215,19 @@ class CourseWork(SimpleApp):
         else:
             z0 = cfg.param_map_z0
 
-        image, periods = self.ifs.draw_parameter_map(
-            default_args=self.default_args,
+        image, periods = self.param_map.compute(
             queue=self.queue,
             skip=cfg.param_map_skip,
             iter=cfg.param_map_iter,
             z0=z0, c=cfg.C,
             tol=cfg.param_map_tolerance,
-            param_bounds=(*cfg.h_bounds, *cfg.alpha_bounds),
+            bounds=(*cfg.h_bounds, *cfg.alpha_bounds),
             root_seq=self.parse_root_sequence(),
-            resolution=cfg.param_map_resolution,
-            method="fast"
+            method="fast",
+            scale_factor=cfg.param_map_resolution,
+            img=self.left_image
         )
+
         print("Computed parameter map in {:.3f} s".format(time.perf_counter() - t))
 
         self.left_wgt.setImage(image)
@@ -207,8 +236,7 @@ class CourseWork(SimpleApp):
     def draw_phase(self, *_):
         h, alpha = self.left_wgt.value()
 
-        image = self.ifs.draw_phase_portrait(
-            default_args=self.default_args,
+        image = self.phase_plot.compute(
             queue=self.queue,
             skip=cfg.phase_skip,
             iter=cfg.phase_iter,
@@ -224,7 +252,7 @@ class CourseWork(SimpleApp):
         )
         self.right_wgt.setImage(image)
 
-        D = self.ifs.compute_d(self.queue)
+        D = self.fbc.compute(self.queue, self.right_image.dev)
 
         self.d_label.setText("D = {:.3f}".format(D))
 
@@ -250,8 +278,7 @@ class CourseWork(SimpleApp):
 
         z0 = cfg.bif_tree_z0
 
-        image = self.ifs.draw_bif_tree(
-            default_args=self.default_args,
+        image = self.bif_tree.compute(
             queue=self.queue,
             skip=cfg.bif_tree_skip,
             iter=cfg.bif_tree_iter,
