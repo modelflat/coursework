@@ -76,6 +76,8 @@ kernel void fast_param_map(
         }
     }
 
+    periods[coord.y * get_global_size(0) + coord.x] = p + 1;
+
     int confirmed = 0;
     if (2*p < iter) {
         // verify period
@@ -84,8 +86,6 @@ kernel void fast_param_map(
         }
         confirmed = all(fabs(base - state.z) < tol);
     }
-
-    periods[coord.y * get_global_size(0) + coord.x] = p + 1;
 
     if (render_image) {
         float3 color = _color_for_count(p + 1, iter);
@@ -96,4 +96,15 @@ kernel void fast_param_map(
             out, coord, (float4)(color, 1.0)
         );
     }
+}
+
+kernel void get_color(const int total, global int* count, global float* res) {
+    const int id = get_global_id(0);
+    res += id * 3;
+
+    float3 color = _color_for_count(count[id], total);
+
+    res[0] = color.x;
+    res[1] = color.y;
+    res[2] = color.z;
 }

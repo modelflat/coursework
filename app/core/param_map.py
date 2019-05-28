@@ -2,7 +2,7 @@ import numpy
 import pyopencl as cl
 
 from . import build_program_from_file
-from .utils import prepare_root_seq, random_seed, alloc_image, alloc_like, real_type
+from .utils import prepare_root_seq, random_seed, alloc_image, alloc_like, real_type, copy_dev
 
 from tqdm import tqdm
 
@@ -152,7 +152,8 @@ class ParameterMap:
         x_ticks = numpy.linspace(xmin, xmax, nx + 1 if nx != 1 else 0)
         y_ticks = numpy.linspace(ymin, ymax, ny + 1 if ny != 1 else 0)
 
-        rest = None
+        image = None
+        periods = None
         pbar = tqdm(
             desc="col loop (col={}x{})".format(img.shape[0], full_size[1]),
             total=(len(x_ticks) - 1) * (len(y_ticks) - 1),
@@ -160,23 +161,48 @@ class ParameterMap:
         )
         for tile_x, x_min, x_max in zip(range(len(x_ticks)), x_ticks, x_ticks[1:]):
             col = []
+            col_periods = []
             for tile_y, y_min, y_max in zip(range(len(y_ticks)), y_ticks, y_ticks[1:]):
                 pbar.set_description("computing tile {:3d},{:3d} -- bounds {:+4.4f}:{:+4.4f}, {:+4.4f}:{:+4.4f}".format(
                     tile_x, tile_y, x_min, x_max, y_min, y_max
                 ))
-                col.append(
-                    self.compute(queue, img, skip, iter, z0, c, tol,
-                                 (x_min, x_max, y_min, y_max),
-                                 root_seq, method, scale_factor, periods_shape, seed)[0].copy()
-                )
+                res = self.compute(queue, img, skip, iter, z0, c, tol,
+                                   (x_min, x_max, y_min, y_max),
+                                   root_seq, method, scale_factor, periods_shape, seed)
+                col.append(res[0].copy())
+                col_periods.append(res[1].copy())
+
                 pbar.update()
             col = numpy.vstack(col[::-1])
+            col_periods = numpy.vstack(col_periods[::-1])
 
-            if rest is None:
-                rest = col
+            if periods is None:
+                periods = col_periods
             else:
-                rest = numpy.hstack((rest, col))
+                periods = numpy.hstack((periods, col_periods))
+
+            if image is None:
+                image = col
+            else:
+                image = numpy.hstack((image, col))
 
         pbar.close()
 
-        return rest
+        return image, periods
+
+    def compute_colors_for_periods(self, queue, periods, iter):
+        periods_dev = copy_dev(self.ctx, periods)
+
+        colors = numpy.empty((len(periods), 3), dtype=numpy.float32)
+        colors_dev = alloc_like(self.ctx, colors)
+
+        self.prg.get_color(
+            queue, (len(periods),), None,
+            numpy.int32(iter),
+            periods_dev,
+            colors_dev
+        )
+
+        cl.enqueue_copy(queue, colors, colors_dev)
+
+        return colors

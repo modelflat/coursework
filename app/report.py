@@ -23,13 +23,37 @@ def make_img(arr):
     return Image.fromarray(bgra2rgba(arr), mode="RGBA")
 
 
-def to_file(arr, filename):
+def to_file(arr, bounds, filename, save_with_axes=True, periods=None, iter=None):
     image = make_img(arr)
     dirname = os.path.dirname(filename)
     if not os.path.isdir(dirname):
         os.makedirs(dirname)
-    with open(filename, "wb") as f:
-        image.save(f)
+
+    if save_with_axes:
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(image.width / 80, image.height / 100),
+                               dpi=120)
+        ax.imshow(image, origin="upper", extent=bounds, aspect="auto")
+        ax.set_xticks(numpy.linspace(*bounds[0:2], 10))
+        ax.set_yticks(numpy.linspace(*bounds[2:4], 10))
+
+        if periods is not None:
+            for p, p_c, col in periods:
+                ax.scatter(bounds[0] - 1, bounds[2] - 1,
+                           marker="o",
+                           color=tuple(numpy.clip(col, 0.0, 1.0)),
+                           label="{} ({:3.2f}%)".format(p, 100 * p_c / numpy.prod(image.size)))
+            # fig.canvas.draw()
+            ax.legend(loc="upper right")
+
+        ax.set_xlim(bounds[0], bounds[1])
+        ax.set_ylim(bounds[2], bounds[3])
+
+        fig.tight_layout()
+        fig.savefig(filename)
+    else:
+        with open(filename, "wb") as f:
+            image.save(f)
 
 
 ctx, queue = create_context_and_queue()
@@ -37,11 +61,11 @@ ctx, queue = create_context_and_queue()
 
 def param_map(filename, **params):
     p = ParameterMap(ctx)
-    img = CLImg(ctx, (1 << 9, 1 << 9))
+    img = CLImg(ctx, (1 << 8, 1 << 8))
 
     defaults = dict(
-        full_size=(1 << 9, 1 << 9),
-        skip=1 << 12,
+        full_size=(1 << 12, 9 * (1 << 8)),
+        skip=1 << 13,
         iter=1 << 8,
         z0=complex(0.001, 0.001),
         c=C,
@@ -53,9 +77,11 @@ def param_map(filename, **params):
 
     params = { **defaults, **params }
 
-    image = p.compute_tiled(
+    image, periods = p.compute_tiled(
         queue, img, **params
     )
+
+    print(periods.min(), periods.shape, periods.dtype)
 
     filename = "{}_{}x{}_b=({})_r=({})__{}.png".format(
         filename,
@@ -65,7 +91,25 @@ def param_map(filename, **params):
         NOW.strftime("%Y%m%d-%H%M%S")
     )
 
-    to_file(image, os.path.join(OUTPUT_ROOT, "param_maps", filename))
+    print("\ncomputing periods statistics")
+    periods, periods_counts = numpy.unique(periods, return_counts=True)
+
+    ind = periods_counts.argsort()[::-1]
+
+    n_top = 20
+
+    top_periods = periods[ind[:n_top]]
+    top_periods_counts = periods_counts[ind[:n_top]]
+
+    colors = p.compute_colors_for_periods(queue, top_periods, params["iter"])
+
+    for i in range(n_top):
+        print("#{} -- {:3d} (x{:6d}) -- {}".format(
+            i + 1, top_periods[i], top_periods_counts[i], colors[i]
+        ))
+
+    to_file(image, params["bounds"], os.path.join(OUTPUT_ROOT, "param_maps", filename),
+            periods=zip(top_periods, top_periods_counts, colors))
 
 
 def bif_tree(filename, **params):
@@ -101,24 +145,25 @@ def bif_tree(filename, **params):
         NOW.strftime("%Y%m%d-%H%M%S")
     )
 
-    to_file(image, os.path.join(OUTPUT_ROOT, "btree", filename))
+    to_file(image, (params["other_min"], params["other_max"], params["var_min"], params["var_max"]),
+            os.path.join(OUTPUT_ROOT, "btree", filename))
 
 
 param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([1]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([2]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 1]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 2]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([1, 2]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 1]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 1]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 1]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 1]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 0, 1]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 2]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 2]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 2]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 0, 2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([1, 2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 0, 2]))
 
 
 # bif_tree("btree",
