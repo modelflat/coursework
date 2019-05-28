@@ -8,7 +8,7 @@ h_bounds = (-6, 0)
 
 # range for varying `alpha`
 # alpha_bounds = (0, 2)
-alpha_bounds = (0.999, 1.000)
+alpha_bounds = (0.0, 1.000)
 
 # `c` constant
 C = complex(-0.5, 0.5)
@@ -81,6 +81,6 @@ basins_skip = 10*param_map_skip + param_map_iter - 1
 
 ## bif tree
 
-bif_tree_skip = 1 << 16
+bif_tree_skip = 1 << 10
 bif_tree_iter = 1 << 8
 bif_tree_z0 = complex(-0.1, 0.1)

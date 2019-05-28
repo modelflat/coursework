@@ -1,10 +1,9 @@
 import numpy
 import pyopencl as cl
+from tqdm import tqdm
 
 from . import build_program_from_file
-from .utils import prepare_root_seq, random_seed, alloc_image, alloc_like, real_type, copy_dev
-
-from tqdm import tqdm
+from .utils import prepare_root_seq, random_seed, alloc_like, real_type, copy_dev
 
 
 class ParameterMap:
@@ -13,16 +12,10 @@ class ParameterMap:
         self.ctx = ctx
         self.prg = build_program_from_file(ctx, ("param_map.cl", "fast_param_map.cl"))
         self.map_points = None
-        self._dummy_img = alloc_image(ctx, (1, 1))[1]
 
-    def _compute_precise(
-            self, queue, skip, iter, z0, c, tol, bounds, root_seq, scale_factor, img,
-            periods_shape=None, seed=None):
+    def _compute_precise(self, queue, skip, iter, z0, c, tol, bounds, root_seq, scale_factor, img, seed=None):
 
-        if periods_shape is not None:
-            shape = periods_shape
-        else:
-            shape = img.shape
+        shape = img.shape
 
         elem_size = real_type().nbytes
         reqd_size = iter * numpy.prod(shape) // scale_factor ** 2
@@ -75,16 +68,8 @@ class ParameterMap:
 
         return img.read(queue), periods
 
-    def _compute_fast(
-            self, queue, skip, iter, z0, c, tol, bounds, root_seq, img,
-            periods_shape=None, seed=None):
-
-        if periods_shape is not None:
-            shape = periods_shape
-            render_image = False
-        else:
-            shape = img.shape
-            render_image = True
+    def _compute_fast(self, queue, skip, iter, z0, c, tol, bounds, root_seq, img, seed=None):
+        shape = img.shape
 
         seq_size, seq = prepare_root_seq(self.ctx, root_seq)
 
@@ -93,8 +78,6 @@ class ParameterMap:
 
         self.prg.fast_param_map(
             queue, shape, None,
-            #
-            numpy.int32(1 if render_image else 0),
             # z0
             numpy.array((z0.real, z0.imag), dtype=real_type),
             # c
@@ -116,7 +99,7 @@ class ParameterMap:
             # result
             periods_device,
             #
-            img.dev if render_image else self._dummy_img
+            img.dev
         )
 
         cl.enqueue_copy(queue, periods, periods_device)
@@ -124,22 +107,19 @@ class ParameterMap:
         return img.read(queue), periods
 
     def compute(self, queue, img, skip, iter, z0, c, tol, bounds,
-                root_seq=None, method="fast", scale_factor=None, periods_shape=None, seed=None):
+                root_seq=None, method="fast", scale_factor=None, seed=None):
         if method == "fast":
             if scale_factor is not None:
                 print("[warn] scale_factor is ignored")
                 pass  # TODO show warning that scale factor will be ignored
-            return self._compute_fast(queue, skip, iter, z0, c, tol, bounds, root_seq,
-                                      img, periods_shape, seed)
+            return self._compute_fast(queue, skip, iter, z0, c, tol, bounds, root_seq, img, seed)
         if method == "precise":
-            return self._compute_precise(queue, skip, iter, z0, c, tol, bounds, root_seq,
-                                         scale_factor,
-                                         img, periods_shape, seed)
+            return self._compute_precise(queue, skip, iter, z0, c, tol, bounds, root_seq, scale_factor, img, seed)
 
         raise RuntimeError("Unknown method: '{}'".format(method))
 
     def compute_tiled(self, queue, img, full_size, skip, iter, z0, c, tol, bounds,
-                      root_seq=None, method="fast", scale_factor=None, periods_shape=None, seed=None):
+                      root_seq=None, method="fast", scale_factor=None, seed=None):
         if full_size[0] % img.shape[0] != 0 or full_size[0] < img.shape[0] \
                 or full_size[1] % img.shape[1] != 0 or full_size[1] < img.shape[1]:
             raise NotImplementedError("full_size is not trivially covered by img.shape")
@@ -168,7 +148,7 @@ class ParameterMap:
                 ))
                 res = self.compute(queue, img, skip, iter, z0, c, tol,
                                    (x_min, x_max, y_min, y_max),
-                                   root_seq, method, scale_factor, periods_shape, seed)
+                                   root_seq, method, scale_factor, seed)
                 col.append(res[0].copy())
                 col_periods.append(res[1].copy())
 

@@ -47,7 +47,6 @@ class LabDesk(QWidget):
             "bounds": param_bounds,
             "method": "fast",
             "scale_factor": cfg.param_map_resolution,
-            "periods_shape": None,
             "seed": None
         }
 

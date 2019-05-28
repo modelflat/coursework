@@ -28,7 +28,6 @@ inline float3 _color_for_count(int count, int total) {
 }
 
 kernel void fast_param_map(
-    const int render_image,
     const real2 z0,
     const real2 c,
 
@@ -87,15 +86,8 @@ kernel void fast_param_map(
         confirmed = all(fabs(base - state.z) < tol);
     }
 
-    if (render_image) {
-        float3 color = _color_for_count(p + 1, iter);
-        if (!confirmed) {
-            color *= 0.75f;
-        }
-        write_imagef(
-            out, coord, (float4)(color, 1.0)
-        );
-    }
+    float3 color = _color_for_count(p + 1, iter) * (confirmed ? 1.0f : 0.5f);
+    write_imagef(out, coord, (float4)(color, 1.0));
 }
 
 kernel void get_color(const int total, global int* count, global float* res) {
