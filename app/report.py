@@ -11,6 +11,8 @@ from core.utils import create_context_and_queue, CLImg
 
 OUTPUT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "output"))
 
+NOW = datetime.now()
+
 
 def bgra2rgba(arr):
     arr.T[numpy.array((0, 1, 2, 3))] = arr.T[numpy.array((2, 1, 0, 3))]
@@ -35,23 +37,24 @@ ctx, queue = create_context_and_queue()
 
 def param_map(filename, **params):
     p = ParameterMap(ctx)
-    img = CLImg(ctx, (1 << 8, 1 << 8))
+    img = CLImg(ctx, (1 << 9, 1 << 9))
 
     defaults = dict(
-        full_size=(1 << 12, 9 * (1 << 8)),
+        full_size=(1 << 13, 9 * (1 << 9)),
         skip=1 << 12,
         iter=1 << 8,
         z0=complex(0.001, 0.001),
         c=C,
-        tol=1e-5,
-        seed=42
+        tol=1e-6,
+        seed=42,
+        # method="precise",
+        # scale_factor=1,
     )
 
+    params = { **defaults, **params }
+
     image = p.compute_tiled(
-        queue, img, **{
-            **params,
-            **defaults
-        }
+        queue, img, **params
     )
 
     filename = "{}_{}x{}_b=({})_r=({})__{}.png".format(
@@ -59,7 +62,7 @@ def param_map(filename, **params):
         *params["full_size"],
         "_".join(map(str, params["bounds"])),
         ",".join(map(str, params["root_seq"])),
-        datetime.now().strftime("%Y%m%d-%H%M%S")
+        NOW.strftime("%Y%m%d-%H%M%S")
     )
 
     to_file(image, os.path.join(OUTPUT_ROOT, "param_maps", filename))
@@ -95,27 +98,33 @@ def bif_tree(filename, **params):
         "h" if params["fixed_id"] == 1 else "alpha",
         ",".join(map(str, (params["other_min"], params["other_max"]))),
         ",".join(map(str, params["root_seq"])),
-        datetime.now().strftime("%Y%m%d-%H%M%S")
+        NOW.strftime("%Y%m%d-%H%M%S")
     )
 
     to_file(image, os.path.join(OUTPUT_ROOT, "btree", filename))
 
 
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([1]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([2]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 1]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 2]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([1, 2]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 1]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 1]))
-# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([1, 2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 0, 1]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 2]))
+param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 0, 2]))
 
 
-bif_tree("btree",
-         fixed_id=1,
-         h=0.0, h_min=-6, h_max=6,
-         alpha=1.0, alpha_min=0, alpha_max=1,
-         root_seq=numpy.array([0]),
-         var_min=-4, var_max=4,
-         )
+# bif_tree("btree",
+#          fixed_id=1,
+#          h=0.0, h_min=-6, h_max=6,
+#          alpha=1.0, alpha_min=0, alpha_max=1,
+#          root_seq=numpy.array([0]),
+#          var_min=-4, var_max=4,
+#          )
