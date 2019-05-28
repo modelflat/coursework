@@ -79,8 +79,7 @@ kernel void fast_param_map(
     int confirmed = 0;
     if (2*p < iter) {
         // verify period
-        int i;
-        for (i = 0; i < p; ++i) {
+        for (int i = 0; i < p - 1; ++i) {
             ns_next(&state);
         }
         confirmed = all(fabs(base - state.z) < tol);
