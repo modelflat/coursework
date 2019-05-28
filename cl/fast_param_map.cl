@@ -76,10 +76,23 @@ kernel void fast_param_map(
         }
     }
 
+    int confirmed = 0;
+    if (2*p < iter) {
+        // verify period
+        int i;
+        for (i = 0; i < p; ++i) {
+            ns_next(&state);
+        }
+        confirmed = all(fabs(base - state.z) < tol);
+    }
+
     periods[coord.y * get_global_size(0) + coord.x] = p + 1;
 
     if (render_image) {
         float3 color = _color_for_count(p + 1, iter);
+        if (!confirmed) {
+            color *= 0.75f;
+        }
         write_imagef(
             out, coord, (float4)(color, 1.0)
         );

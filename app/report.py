@@ -40,7 +40,7 @@ def param_map(filename, **params):
     img = CLImg(ctx, (1 << 9, 1 << 9))
 
     defaults = dict(
-        full_size=(1 << 13, 9 * (1 << 9)),
+        full_size=(1 << 9, 1 << 9),
         skip=1 << 12,
         iter=1 << 8,
         z0=complex(0.001, 0.001),
@@ -105,20 +105,20 @@ def bif_tree(filename, **params):
 
 
 param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([1]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([2]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 1]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 2]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([1, 2]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 1]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 1]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 1]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 1]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 0, 1]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 2]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 2]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 2]))
-param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 0, 2]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([1]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([2]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 1]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 2]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([1, 2]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 1]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 1]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 1]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 1]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 0, 1]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 2]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 2]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 2]))
+# param_map("map", bounds=(-6, 6, 0, 1), root_seq=numpy.array([0, 0, 0, 0, 0, 0, 2]))
 
 
 # bif_tree("btree",

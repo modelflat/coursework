@@ -21,10 +21,10 @@ param_map_image_shape = (512, 512)
 
 # skip iters on param map
 # param_map_skip = 1 << 4
-param_map_skip = 1 << 3
+param_map_skip = 1 << 8
 
 # iters on param map
-param_map_iter = 1 << 3
+param_map_iter = 1 << 6
 
 # same point detection tol
 param_map_tolerance = 1e-4
