@@ -4,6 +4,8 @@ import pyopencl as cl
 from . import build_program_from_file
 from .utils import prepare_root_seq, random_seed, alloc_image, alloc_like, real_type
 
+from tqdm import tqdm
+
 
 class ParameterMap:
 
@@ -121,12 +123,12 @@ class ParameterMap:
 
         return img.read(queue), periods
 
-    def compute(self, queue, img, skip, iter, z0, c, tol, bounds, root_seq,
-                method="fast", scale_factor=None, periods_shape=None, seed=None):
+    def compute(self, queue, img, skip, iter, z0, c, tol, bounds,
+                root_seq=None, method="fast", scale_factor=None, periods_shape=None, seed=None):
         if method == "fast":
             if scale_factor is not None:
                 print("[warn] scale_factor is ignored")
-                pass # TODO show warning that scale factor will be ignored
+                pass  # TODO show warning that scale factor will be ignored
             return self._compute_fast(queue, skip, iter, z0, c, tol, bounds, root_seq,
                                       img, periods_shape, seed)
         if method == "precise":
@@ -135,3 +137,44 @@ class ParameterMap:
                                          img, periods_shape, seed)
 
         raise RuntimeError("Unknown method: '{}'".format(method))
+
+    def compute_tiled(self, queue, img, full_size, skip, iter, z0, c, tol, bounds,
+                      root_seq=None, method="fast", scale_factor=None, periods_shape=None, seed=None):
+        if full_size[0] % img.shape[0] != 0 or full_size[0] < img.shape[0] \
+                or full_size[1] % img.shape[1] != 0 or full_size[1] < img.shape[1]:
+            raise NotImplementedError("full_size is not trivially covered by img.shape")
+
+        xmin, xmax, ymin, ymax = bounds
+
+        nx = full_size[0] // img.shape[0]
+        ny = full_size[1] // img.shape[1]
+
+        x_ticks = numpy.linspace(xmin, xmax, nx + 1 if nx != 1 else 0)
+        y_ticks = numpy.linspace(ymin, ymax, ny + 1 if ny != 1 else 0)
+
+        rest = None
+        pbar = tqdm(
+            desc="col loop (col={}x{})".format(img.shape[0], full_size[1]),
+            total=(len(x_ticks) - 1) * (len(y_ticks) - 1),
+            ncols=120
+        )
+        for tile_x, x_min, x_max in zip(range(len(x_ticks)), x_ticks, x_ticks[1:]):
+            col = []
+            for tile_y, y_min, y_max in zip(range(len(y_ticks)), y_ticks, y_ticks[1:]):
+                pbar.set_description("computing tile {:3d},{:3d} -- bounds {:+4.4f}:{:+4.4f}, {:+4.4f}:{:+4.4f}".format(
+                    tile_x, tile_y, x_min, x_max, y_min, y_max
+                ))
+                col.append(
+                    self.compute(queue, img, skip, iter, z0, c, tol,
+                                 (x_min, x_max, y_min, y_max),
+                                 root_seq, method, scale_factor, periods_shape, seed)[0].copy()
+                )
+                pbar.update()
+            col = numpy.vstack(col[::-1])
+
+            if rest is None:
+                rest = col
+            else:
+                rest = numpy.hstack((rest, col))
+
+        return rest

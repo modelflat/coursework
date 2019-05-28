@@ -1,4 +1,5 @@
 ## general parameters
+seed = 42
 
 # range for varying `h`
 # h_bounds = (-0.5, 0.5)

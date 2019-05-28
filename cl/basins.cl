@@ -2,7 +2,6 @@
 #include "util.clh"
 
 
-
 // Compute where points would be after N iterations
 kernel void compute_basins(
     const int skip,

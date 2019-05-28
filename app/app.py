@@ -1,21 +1,16 @@
 import time
-from collections import defaultdict
 
 import numpy
-from PyQt5.QtWidgets import QLabel, QLineEdit, QCheckBox, QPushButton, QComboBox
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QLabel, QLineEdit, QCheckBox, QPushButton, QComboBox
 
 import config as cfg
-
-from core.basins import BasinsOfAttraction
-from core.bif_tree import BifTree
-from core.fast_box_counting import FastBoxCounting
-from core.param_map import ParameterMap
-from core.phase_plot import PhasePlot
+from core.desk import LabDesk
 from core.ui import SimpleApp, createSlider, stack, ParameterizedImageWidget
 from core.utils import blank_image, CLImg
 
-numpy.random.seed(42)
+
+numpy.random.seed(cfg.seed)
 
 
 def make_phase_wgt(space_shape, image_shape):
@@ -39,15 +34,10 @@ class CourseWork(SimpleApp):
     def __init__(self):
         super().__init__("Coursework")
 
+        self.desk = LabDesk(self.ctx, self.queue)
+
         self.left_image = CLImg(self.ctx, (512, 512))
-        self.param_map = ParameterMap(self.ctx)
-        self.bif_tree = BifTree(self.ctx)
-
         self.right_image = CLImg(self.ctx, (512, 512))
-        self.basins = BasinsOfAttraction(self.ctx)
-        self.phase_plot = PhasePlot(self.ctx)
-
-        self.fbc = FastBoxCounting(self.ctx)
 
         # left widget is for parameter-related stuff
         self.left_wgt = make_param_wgt(cfg.h_bounds, cfg.alpha_bounds, cfg.param_map_image_shape)
@@ -82,8 +72,6 @@ class CourseWork(SimpleApp):
 
         self.root_seq_edit = QLineEdit()
 
-        self.random_seq = None
-
         self.left_wgts = {
             "parameter map": self.draw_param_map,
             "bif tree (h)": lambda: self.draw_bif_tree(param="h"),
@@ -93,8 +81,8 @@ class CourseWork(SimpleApp):
 
         self.right_wgts = {
             "phase":  self.draw_phase,
-            "basins dev": lambda: self.draw_basins(method="dev"),
-            "basins host": lambda: self.draw_basins(method="host")
+            "basins (dev)": lambda: self.draw_basins(method="dev"),
+            "basins (host)": lambda: self.draw_basins(method="host")
         }
         self.right_mode_cmb.addItems(self.right_wgts.keys())
 
@@ -155,53 +143,41 @@ class CourseWork(SimpleApp):
         def gen_random_seq_fn(*_):
             try:
                 root_seq_size = int(self.root_seq_edit.text())
-                self.random_seq = numpy.random.randint(0, 2 + 1, size=root_seq_size, dtype=numpy.int32)
-                print(self.random_seq)
-                self.root_seq_edit.setText(" ".join(map(str, self.random_seq)))
+                self.desk.root_seq = numpy.random.randint(0, 2 + 1, size=root_seq_size, dtype=numpy.int32)
+                self.root_seq_edit.setText(" ".join(map(str, self.desk.root_seq)))
+                print(self.desk.root_seq)
             except Exception as e:
                 print(e)
 
         self.random_seq_gen_btn.clicked.connect(gen_random_seq_fn)
 
         def reset_random_seq_fn(*_):
-            self.random_seq = None
+            self.desk.root_seq = None
         self.random_seq_reset_btn.clicked.connect(reset_random_seq_fn)
 
         self.right_mode_cmb.currentIndexChanged.connect(self.draw_right)
         self.right_mode_cmb.currentIndexChanged.connect(self.draw_left)
 
     def parse_root_sequence(self):
-        try:
-            raw = self.root_seq_edit.text()
-            if self.random_seq is not None:
-                return self.random_seq
-            else:
-                l = list(map(int, raw.split()))
-                if len(l) == 0 or not all(map(lambda x: x <= 2, l)):
-                    return None
-                else:
-                    return l
-        except:
-            return None
+        self.desk.update_root_sequence(self.root_seq_edit.text())
 
     def draw_param_placeholder(self):
         self.left_wgt.setImage(blank_image((512, 512)))
 
-    def draw_basins(self, *_, method="b"):
+    def draw_basins(self, *_, method=None):
         h, alpha = self.left_wgt.value()
+        self.parse_root_sequence()
 
-        image = self.basins.compute(
-            queue=self.queue, img=self.right_image,
-            skip=cfg.basins_skip,
-            h=h, alpha=alpha, c=cfg.C,
-            bounds=cfg.phase_shape,
-            root_seq=self.parse_root_sequence(),
-            method=method,
-            scale_factor=cfg.basins_resolution,
+        self.desk.update_basins_params(
+            h=h, alpha=alpha, method=method
         )
-        self.right_wgt.setImage(image)
+
+        self.right_wgt.setImage(
+            self.desk.draw_basins(self.right_image)
+        )
 
     def draw_param_map(self, *_):
+        self.parse_root_sequence()
         print("Start computing parameter map")
         t = time.perf_counter()
 
@@ -211,18 +187,11 @@ class CourseWork(SimpleApp):
         else:
             z0 = cfg.param_map_z0
 
-        image, periods = self.param_map.compute(
-            queue=self.queue,
-            img=self.left_image,
-            skip=cfg.param_map_skip,
-            iter=cfg.param_map_iter,
-            z0=z0, c=cfg.C,
-            tol=cfg.param_map_tolerance,
-            bounds=(*cfg.h_bounds, *cfg.alpha_bounds),
-            root_seq=self.parse_root_sequence(),
-            method="fast",
-            scale_factor=cfg.param_map_resolution,
+        self.desk.update_param_map_params(
+            z0=z0
         )
+
+        image, periods = self.desk.draw_param_map(self.left_image)
 
         print("Computed parameter map in {:.3f} s".format(time.perf_counter() - t))
 
@@ -231,30 +200,27 @@ class CourseWork(SimpleApp):
 
     def draw_phase(self, *_):
         h, alpha = self.left_wgt.value()
+        self.parse_root_sequence()
 
-        image = self.phase_plot.compute(
-            queue=self.queue,
-            img=self.right_image,
-            skip=cfg.phase_skip,
-            iter=cfg.phase_iter,
-            h=h, alpha=alpha,
-            c=cfg.C,
-            bounds=cfg.phase_shape,
-            grid_size=cfg.phase_grid_size,
+        self.desk.update_phase_plot_params(
+            h=h,
+            alpha=alpha,
             z0=cfg.phase_z0 if not cfg.phase_plot_select_point else complex(
-                *self.right_wgt.value()
-            ),
-            root_seq=self.parse_root_sequence(),
+                *self.right_wgt.value()),
             clear=self.clear_cb.isChecked()
         )
-        self.right_wgt.setImage(image)
 
-        D = self.fbc.compute(self.queue, self.right_image.dev)
+        self.right_wgt.setImage(
+            self.desk.draw_phase(self.right_image)
+        )
+
+        D = self.desk.fbc.compute(self.queue, self.right_image.dev)
 
         self.d_label.setText("D = {:.3f}".format(D))
 
     def draw_bif_tree(self, *_, param=None):
         h, alpha = self.left_wgt.value()
+        self.parse_root_sequence()
 
         if param == "h":
             param_properties = {
@@ -273,22 +239,13 @@ class CourseWork(SimpleApp):
         else:
             raise RuntimeError()
 
-        z0 = cfg.bif_tree_z0
-
-        image = self.bif_tree.compute(
-            queue=self.queue,
-            img=self.left_image,
-            skip=cfg.bif_tree_skip,
-            iter=cfg.bif_tree_iter,
-            z0=z0,
-            c=cfg.C,
-            var_id=0,
-            root_seq=self.parse_root_sequence(),
-            var_min=-3,
-            var_max=3,
+        self.desk.update_bif_tree_params(
             **param_properties
         )
-        self.left_wgt.setImage(image.copy())
+
+        self.left_wgt.setImage(
+            self.desk.draw_bif_tree(self.left_image)
+        )
 
     def set_period_label(self):
         x_px, y_px = self.left_wgt._imageWidget.targetPx()
@@ -316,14 +273,12 @@ class CourseWork(SimpleApp):
         self.alpha_slider.blockSignals(False)
 
     def draw_right(self):
-        # print("draw_right called")
         what = self.right_mode_cmb.currentText()
         self.set_period_label()
         self.right_wgts[what]()
 
     def draw_left(self):
         what = self.left_mode_cmb.currentText()
-        # self.set_period_label()
         self.left_wgts[what]()
 
 

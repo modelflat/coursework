@@ -237,3 +237,5 @@ pip-selfcheck.json
 
 .idea
 *.iml
+
+output/
