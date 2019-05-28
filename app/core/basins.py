@@ -12,7 +12,7 @@ class BasinsOfAttraction:
         self.prg = build_program_from_file(ctx, "basins.cl")
 
     def compute(self, queue, img, skip, h, alpha, c, bounds,
-                root_seq=None, method="dev", scale_factor=1):
+                root_seq=None, method="dev", scale_factor=1, seed=None):
         points = numpy.empty((numpy.prod(img.shape), 2), dtype=real_type)
         points_dev = alloc_like(self.ctx, points)
 
@@ -27,7 +27,7 @@ class BasinsOfAttraction:
             real_type(h),
             real_type(alpha),
 
-            numpy.uint64(random_seed()),
+            numpy.uint64(seed if seed is not None else random_seed()),
 
             numpy.int32(seq_size),
             seq,
