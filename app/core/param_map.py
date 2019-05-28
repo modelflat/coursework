@@ -177,4 +177,6 @@ class ParameterMap:
             else:
                 rest = numpy.hstack((rest, col))
 
+        pbar.close()
+
         return rest
