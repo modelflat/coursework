@@ -45,7 +45,7 @@ def to_file(arr, bounds, filename, save_with_axes=True, periods=None, iter=None)
                 ax.scatter(bounds[0] - 1, bounds[2] - 1,
                            marker="o",
                            color=tuple(numpy.clip(col, 0.0, 1.0)),
-                           label="{} ({:3.2f}%)".format(p if p > iter / 1.5 else "chaos",
+                           label="{} ({:3.2f}%)".format(p if p < iter / 2 else "chaos",
                                                         100 * p_c / numpy.prod(image.size)))
             ax.legend(loc="upper right")
 
@@ -60,14 +60,11 @@ def to_file(arr, bounds, filename, save_with_axes=True, periods=None, iter=None)
             image.save(f)
 
 
-ctx, queue = create_context_and_queue()
-
-
-def param_map(filename, **params):
+def param_map(ctx, queue, filename, **kwargs):
     p = ParameterMap(ctx)
-    img = CLImg(ctx, (1 << 6, 1 << 6))
+    img = CLImg(ctx, kwargs.get("tile_size", (1 << 6, 1 << 6)))
 
-    defaults = dict(
+    params = dict(
         full_size=(1 << 12, 9 * (1 << 8)),
         skip=1 << 10,
         iter=1 << 8,
@@ -76,10 +73,10 @@ def param_map(filename, **params):
         tol=1e-6,
         seed=42,
         method="precise",
-        scale_factor=1,
+        scale_factor=1
     )
 
-    params = { **defaults, **params }
+    params.update(kwargs)
 
     image, periods = p.compute_tiled(
         queue, img, **params
@@ -117,13 +114,12 @@ def param_map(filename, **params):
             iter=params["iter"])
 
 
-def bif_tree(filename, **params):
+def bif_tree(ctx, queue, filename, **params):
     p = BifTree(ctx)
     # img = CLImg(ctx, (1 << 14, 9 * (1 << 10) // 16))
     img = CLImg(ctx, (1 << 13, 1 << 13))
 
     params = dict(
-        #full_size=(1 << 12, 9 * (1 << 8)),
         skip=1 << 16,
         iter=1 << 14,
         z0=complex(0.001, 0.001),
@@ -155,7 +151,7 @@ def bif_tree(filename, **params):
             os.path.join(OUTPUT_ROOT, "btree", filename))
 
 
-def basins(filename, **params):
+def basins(ctx, queue, filename, **params):
     p = BasinsOfAttraction(ctx)
     # img = CLImg(ctx, (1 << 14, 9 * (1 << 14) // 16))
     img = CLImg(ctx, (1 << 12, 1 << 12))
@@ -186,30 +182,32 @@ def basins(filename, **params):
     to_file(image, params["bounds"], os.path.join(OUTPUT_ROOT, "basins", filename))
 
 
-bounds = (-6, 0, 0.5, 1.0)
-name = "test__"
+if __name__ == '__main__':
+    ctx, queue = create_context_and_queue()
+    bounds = (-6, 0, 0.5, 1.0)
+    name = "test__"
 
-# param_map(name, bounds=bounds, root_seq=numpy.array([0]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([1]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([2]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([0, 1]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([0, 2]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([1, 2]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([0, 0, 1]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 1]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 1]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 0, 1]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 0, 0, 1]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([0, 0, 2]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 2]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 2]))
-# param_map(name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 0, 0, 2]))
+    param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([1]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([2]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 1]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 2]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([1, 2]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 1]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 1]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 1]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 0, 1]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 0, 0, 1]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 2]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 2]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 2]))
+    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 0, 0, 2]))
 
 
-# bif_tree("btree", fixed_id=1, h=0.0, h_min=-6, h_max=0, alpha=1.0, alpha_min=0, alpha_max=1, root_seq=numpy.array([0]), var_min=-4, var_max=4)
+    # bif_tree(ctx, queue, "btree", fixed_id=1, h=0.0, h_min=-6, h_max=0, alpha=1.0, alpha_min=0, alpha_max=1, root_seq=numpy.array([0]), var_min=-4, var_max=4)
 
-for h in tqdm(numpy.linspace(-3, 0, 4)):
-    basins("basins_along_alpha1", h=h, alpha=1.0, root_seq=numpy.array([0]))
+    for h in tqdm(numpy.linspace(-3, 0, 4)):
+        basins(ctx, queue, "basins_along_alpha1", h=h, alpha=1.0, root_seq=numpy.array([0]))
 
-basins("basins", h=-5.0, alpha=1.0, root_seq=numpy.array([0]))
-# basins("basins", h=2.22, alpha=0.0, root_seq=numpy.array([0]))
+    basins(ctx, queue, "basins", h=-5.0, alpha=1.0, root_seq=numpy.array([0]))
+    # basins("basins", h=2.22, alpha=0.0, root_seq=numpy.array([0]))
