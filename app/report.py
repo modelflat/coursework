@@ -39,6 +39,10 @@ def to_file(arr, bounds, filename, save_with_axes=True, periods=None, iter=None,
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(figsize=(image.width / dpi, image.height / dpi), dpi=dpi)
         ax.imshow(image, origin="upper", extent=bounds, aspect="auto")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
         ax.set_xticks(numpy.linspace(*bounds[0:2], 10))
         ax.set_yticks(numpy.linspace(*bounds[2:4], 10))
 
@@ -47,7 +51,7 @@ def to_file(arr, bounds, filename, save_with_axes=True, periods=None, iter=None,
                 ax.scatter(bounds[0] - 1, bounds[2] - 1,
                            marker="o",
                            color=tuple(numpy.clip(col, 0.0, 1.0)),
-                           label="{} ({:3.2f}%)".format(p if p < iter / 2 else "chaos",
+                           label="{} ({:3.2f}%)".format("chaos" if p >= iter - 1 else p,
                                                         100 * p_c / numpy.prod(image.size)))
             if legend_bbox_anchor is not None:
                 ax.legend(bbox_to_anchor=legend_bbox_anchor)
@@ -88,7 +92,7 @@ def param_map(ctx, queue, filename, full_size=(640, 480), tile_size=(160, 160), 
         queue, img, **params
     )
 
-    print(periods.min(), periods.shape, periods.dtype)
+    # print(periods.min(), periods.shape, periods.dtype)
 
     filename = "{}_{}x{}_b=({})_r=({})__{}.png".format(
         # _z0=({:+.2f},{:+.2f})
@@ -100,27 +104,29 @@ def param_map(ctx, queue, filename, full_size=(640, 480), tile_size=(160, 160), 
         NOW.strftime("%Y%m%d-%H%M%S")
     )
 
-    print("\ncomputing periods statistics")
+    # print("\ncomputing periods statistics")
     periods, periods_counts = numpy.unique(periods, return_counts=True)
 
     ind = periods_counts.argsort()[::-1]
 
-    n_top = kwargs.get("ntop", 15)
+    n_top = kwargs.get("ntop", 10)
 
     top_periods = periods[ind[:n_top]]
     top_periods_counts = periods_counts[ind[:n_top]]
 
     colors = p.compute_colors_for_periods(queue, top_periods, params["iter"])
 
-    for _, i in zip(top_periods, range(n_top)):
-        print("#{} -- {:3d} (x{:6d}) -- {}".format(
-            i + 1, top_periods[i], top_periods_counts[i], colors[i]
-        ))
+    show_stats = False
+    if show_stats:
+        for _, i in zip(top_periods, range(n_top)):
+            print("#{} -- {:3d} (x{:6d}) -- {}".format(
+                i + 1, top_periods[i], top_periods_counts[i], colors[i]
+            ))
 
     to_file(image, params["bounds"], os.path.join(OUTPUT_ROOT, "param_maps", filename),
             periods=zip(top_periods, top_periods_counts, colors),
             iter=params["iter"], dpi=kwargs.get("dpi", 80),
-            legend_bbox_anchor=kwargs.get("legend_bbox_anchor", (1.3, 1.01)))
+            legend_bbox_anchor=kwargs.get("legend_bbox_anchor", (1.3, 1.012)))
 
 
 def bif_tree(ctx, queue, filename, **params):
@@ -198,10 +204,10 @@ def all_param_maps(ctx, queue):
 
     kwargs = dict(
         full_size=(640, 480),
-        tile_size=(160, 160),
-        bounds=(-6, 6, 0.5, 1.0),
-        skip=1 << 8,
-        iter=1 << 8
+        tile_size=(80, 80),
+        bounds=(-6, 0, 0.5, 1.0),
+        skip=100000,
+        iter=500,
     )
 
     name = "pmap_"

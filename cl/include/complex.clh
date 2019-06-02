@@ -98,6 +98,7 @@ inline real2 unity_ccbrt_2_mul(const real2 a) {
 
 
 // solve_cubic -- http://www.ursoswald.ch/download/CUBIC.pdf
+//https://docplayer.net/20747283-Cubic-and-quartic-formulas-james-t-smith-san-francisco-state-university.html
 
 // TODO optimize solve_cubic functions
 // probably should be merge into single function. also pay
