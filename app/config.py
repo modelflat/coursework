@@ -4,7 +4,7 @@ seed = 42
 # range for varying `h`
 # h_bounds = (-0.5, 0.5)
 # h_bounds = (-10, 10)
-h_bounds = (-6, 0)
+h_bounds = (-6, 6)
 
 # range for varying `alpha`
 # alpha_bounds = (0, 2)

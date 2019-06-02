@@ -1,7 +1,10 @@
 #include "newton.clh"
 #include "util.clh"
 
+#ifndef POINT_RADIUS
 #define POINT_RADIUS 1
+#endif
+
 #define POINT_COLOR (float4)(0.0, 0.0, 0.0, 1.0)
 
 

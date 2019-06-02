@@ -5,8 +5,11 @@ import numpy
 from PIL import Image
 
 from config import C
+from core.phase_plot import PhasePlot
 from core.bif_tree import BifTree
 from core.param_map import ParameterMap
+from core.bounding_box import BoundingBox
+from core.fast_box_counting import FastBoxCounting
 from core.utils import create_context_and_queue, CLImg
 
 from core.basins import BasinsOfAttraction
@@ -182,8 +185,7 @@ def basins(ctx, queue, filename, **params):
     to_file(image, params["bounds"], os.path.join(OUTPUT_ROOT, "basins", filename))
 
 
-if __name__ == '__main__':
-    ctx, queue = create_context_and_queue()
+def param_maps(ctx, queue):
     bounds = (-6, 0, 0.5, 1.0)
     name = "test__"
 
@@ -203,6 +205,48 @@ if __name__ == '__main__':
     # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 2]))
     # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 0, 0, 2]))
 
+
+def plot_D(ctx, queue):
+    h_min, h_max = -0.01, 0.01
+    alpha = 0.0
+
+    skip = 1 << 14
+    iter = 1 << 12
+
+    img = CLImg(ctx, (512, 512))
+    phase = PhasePlot(ctx)
+    fbc = FastBoxCounting(ctx)
+    bbox = BoundingBox(ctx)
+
+    bounds = (-1, 1, -1, 1)
+
+    hs = numpy.linspace(h_min, h_max, 10000)
+    from time import perf_counter
+
+    ds = []
+    tm = []
+    for h in tqdm(hs):
+        t = perf_counter()
+        phase.compute(queue, img, skip=skip, iter=iter, h=h, alpha=alpha, c=C, bounds=bounds, grid_size=4, seed=42)
+        tm.append(perf_counter() - t)
+
+        box, new_bounds = bbox.compute(queue, img, bounds=bounds)
+        # print("h = {:.3f}:".format(h), bounds, "->", new_bounds)
+
+        phase.compute(queue, img, skip=skip, iter=iter, h=h, alpha=alpha, c=C, bounds=new_bounds, grid_size=4, seed=42)
+        d = fbc.compute(queue, img.dev)
+        ds.append(d)
+
+    print(numpy.mean(tm), "s")
+
+    import matplotlib.pyplot as plt
+
+    plt.plot(hs, ds)
+    plt.show()
+
+
+if __name__ == '__main__':
+    ctx, queue = create_context_and_queue()
 
     # bif_tree(ctx, queue, "btree", fixed_id=1, h=0.0, h_min=-6, h_max=0, alpha=1.0, alpha_min=0, alpha_max=1, root_seq=numpy.array([0]), var_min=-4, var_max=4)
 
