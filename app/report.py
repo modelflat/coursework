@@ -29,7 +29,7 @@ def make_img(arr):
     return Image.fromarray(bgra2rgba(arr), mode="RGBA")
 
 
-def to_file(arr, bounds, filename, save_with_axes=True, periods=None, iter=None):
+def to_file(arr, bounds, filename, save_with_axes=True, periods=None, iter=None, dpi=64, legend_bbox_anchor=None):
     image = make_img(arr)
     dirname = os.path.dirname(filename)
     if not os.path.isdir(dirname):
@@ -37,7 +37,6 @@ def to_file(arr, bounds, filename, save_with_axes=True, periods=None, iter=None)
 
     if save_with_axes:
         import matplotlib.pyplot as plt
-        dpi = 64
         fig, ax = plt.subplots(figsize=(image.width / dpi, image.height / dpi), dpi=dpi)
         ax.imshow(image, origin="upper", extent=bounds, aspect="auto")
         ax.set_xticks(numpy.linspace(*bounds[0:2], 10))
@@ -50,7 +49,11 @@ def to_file(arr, bounds, filename, save_with_axes=True, periods=None, iter=None)
                            color=tuple(numpy.clip(col, 0.0, 1.0)),
                            label="{} ({:3.2f}%)".format(p if p < iter / 2 else "chaos",
                                                         100 * p_c / numpy.prod(image.size)))
-            ax.legend(loc="upper right")
+            if legend_bbox_anchor is not None:
+                ax.legend(bbox_to_anchor=legend_bbox_anchor)
+                fig.tight_layout()
+            else:
+                ax.legend(loc="upper right")
 
         ax.set_xlim(bounds[0], bounds[1])
         ax.set_ylim(bounds[2], bounds[3])
@@ -63,19 +66,19 @@ def to_file(arr, bounds, filename, save_with_axes=True, periods=None, iter=None)
             image.save(f)
 
 
-def param_map(ctx, queue, filename, **kwargs):
+def param_map(ctx, queue, filename, full_size=(640, 480), tile_size=(160, 160), **kwargs):
     p = ParameterMap(ctx)
-    img = CLImg(ctx, kwargs.get("tile_size", (1 << 6, 1 << 6)))
+    img = CLImg(ctx, tile_size)
 
     params = dict(
-        full_size=(1 << 12, 9 * (1 << 8)),
-        skip=1 << 10,
+        full_size=full_size,
+        skip=1 << 8,
         iter=1 << 8,
         z0=complex(0.001, 0.001),
         c=C,
         tol=1e-6,
         seed=42,
-        method="precise",
+        method="fast",
         scale_factor=1
     )
 
@@ -88,10 +91,12 @@ def param_map(ctx, queue, filename, **kwargs):
     print(periods.min(), periods.shape, periods.dtype)
 
     filename = "{}_{}x{}_b=({})_r=({})__{}.png".format(
+        # _z0=({:+.2f},{:+.2f})
         filename,
         *params["full_size"],
         "_".join(map(str, params["bounds"])),
-        ",".join(map(str, params["root_seq"])),
+        ",".join(map(str, params["root_seq"])) if len(params["root_seq"]) < 6 else "r=(too long...)",
+        # params["z0"].real, params["z0"].imag,
         NOW.strftime("%Y%m%d-%H%M%S")
     )
 
@@ -100,7 +105,7 @@ def param_map(ctx, queue, filename, **kwargs):
 
     ind = periods_counts.argsort()[::-1]
 
-    n_top = 20
+    n_top = kwargs.get("ntop", 15)
 
     top_periods = periods[ind[:n_top]]
     top_periods_counts = periods_counts[ind[:n_top]]
@@ -114,7 +119,8 @@ def param_map(ctx, queue, filename, **kwargs):
 
     to_file(image, params["bounds"], os.path.join(OUTPUT_ROOT, "param_maps", filename),
             periods=zip(top_periods, top_periods_counts, colors),
-            iter=params["iter"])
+            iter=params["iter"], dpi=kwargs.get("dpi", 80),
+            legend_bbox_anchor=kwargs.get("legend_bbox_anchor", (1.3, 1.01)))
 
 
 def bif_tree(ctx, queue, filename, **params):
@@ -185,25 +191,49 @@ def basins(ctx, queue, filename, **params):
     to_file(image, params["bounds"], os.path.join(OUTPUT_ROOT, "basins", filename))
 
 
-def param_maps(ctx, queue):
-    bounds = (-6, 0, 0.5, 1.0)
-    name = "test__"
+def all_param_maps(ctx, queue):
+    root0_z0 = complex(+0.3, -0.1)
+    root1_z0 = complex(-0.1, +0.3)
+    root2_z0 = complex(-0.3, -0.3)
 
-    param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([1]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([2]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 1]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 2]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([1, 2]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 1]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 1]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 1]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 0, 1]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 0, 0, 1]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 2]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 2]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 2]))
-    # param_map(ctx, queue, name, bounds=bounds, root_seq=numpy.array([0, 0, 0, 0, 0, 0, 2]))
+    kwargs = dict(
+        full_size=(640, 480),
+        tile_size=(160, 160),
+        bounds=(-6, 6, 0.5, 1.0),
+        skip=1 << 8,
+        iter=1 << 8
+    )
+
+    name = "pmap_"
+
+    def basic():
+        param_map(ctx, queue, "single_root0", root_seq=numpy.array([0]), z0=root0_z0, **kwargs)
+        param_map(ctx, queue, "single_root1", root_seq=numpy.array([1]), z0=root1_z0, **kwargs)
+        param_map(ctx, queue, "single_root2", root_seq=numpy.array([2]), z0=root2_z0, **kwargs)
+        param_map(ctx, queue, "simple_02", root_seq=numpy.array([0, 2]), z0=root0_z0, **kwargs)
+        param_map(ctx, queue, "simple_12", root_seq=numpy.array([1, 2]), z0=root1_z0, **kwargs)
+        param_map(ctx, queue, "simple_012", root_seq=numpy.array([0, 1, 2]), z0=root0_z0, **kwargs)
+
+    def sequence_of_zeros():
+        nz = [1, 2, 3, 4, 5, 16, 32, 64, 128]
+        other_root = 1
+        param_map(ctx, queue, "zseq_0", root_seq=numpy.array([0]), z0=root0_z0, **kwargs)
+        for z in nz:
+            param_map(ctx, queue, "zseq_{}".format(z),
+                      root_seq=numpy.array(z*[0] + [other_root]), z0=root0_z0, **kwargs)
+
+    # basic()
+    sequence_of_zeros()
+
+
+def all_other_stuff(ctx, queue):
+    bif_tree(ctx, queue, "btree", fixed_id=1, h=0.0, h_min=-6, h_max=0, alpha=1.0, alpha_min=0, alpha_max=1, root_seq=numpy.array([0]), var_min=-4, var_max=4)
+
+    for h in tqdm(numpy.linspace(-3, 0, 4)):
+        basins(ctx, queue, "basins_along_alpha1", h=h, alpha=1.0, root_seq=numpy.array([0]))
+
+    basins(ctx, queue, "basins", h=-5.0, alpha=1.0, root_seq=numpy.array([0]))
+    basins(ctx, queue, "basins", h=2.22, alpha=0.0, root_seq=numpy.array([0]))
 
 
 def plot_D(ctx, queue):
@@ -248,10 +278,5 @@ def plot_D(ctx, queue):
 if __name__ == '__main__':
     ctx, queue = create_context_and_queue()
 
-    # bif_tree(ctx, queue, "btree", fixed_id=1, h=0.0, h_min=-6, h_max=0, alpha=1.0, alpha_min=0, alpha_max=1, root_seq=numpy.array([0]), var_min=-4, var_max=4)
-
-    for h in tqdm(numpy.linspace(-3, 0, 4)):
-        basins(ctx, queue, "basins_along_alpha1", h=h, alpha=1.0, root_seq=numpy.array([0]))
-
-    basins(ctx, queue, "basins", h=-5.0, alpha=1.0, root_seq=numpy.array([0]))
-    # basins("basins", h=2.22, alpha=0.0, root_seq=numpy.array([0]))
+    all_param_maps(ctx, queue)
+    # all_other_stuff(ctx, queue)

@@ -110,7 +110,6 @@ class ParameterMap:
                 root_seq=None, method="fast", scale_factor=None, seed=None):
         if method == "fast":
             if scale_factor is not None:
-                print("[warn] scale_factor is ignored")
                 pass  # TODO show warning that scale factor will be ignored
             return self._compute_fast(queue, skip, iter, z0, c, tol, bounds, root_seq, img, seed)
         if method == "precise":

@@ -33,8 +33,8 @@ inline real2 point_from_id(const real4 bounds) {
 
 inline real2 point_from_id_dense(const real4 bounds) {
     const real2 uv = {
-        (real)(get_global_id(0)) / (real)(get_global_size(0) - 1),
-        (real)(get_global_id(1)) / (real)(get_global_size(1) - 1)
+        (real)(get_global_id(0) + 1) / (real)(get_global_size(0)),
+        (real)(get_global_id(1) + 1) / (real)(get_global_size(1))
     };
     return bounds.s02 + uv * (bounds.s13 - bounds.s02);
 }
