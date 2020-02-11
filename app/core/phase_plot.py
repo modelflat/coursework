@@ -9,7 +9,7 @@ class PhasePlot:
     def __init__(self, ctx):
         self.ctx = ctx
         self.prg = build_program_from_file(ctx, "phase_plot.cl",
-                                           options=("-DPOINT_RADIUS=0", ))
+                                           options=("-DPOINT_RADIUS=1", ))
 
     def compute(self, queue, img, skip, iter, h, alpha, c, bounds, grid_size,
                 z0=None, root_seq=None, clear=True, seed=None):

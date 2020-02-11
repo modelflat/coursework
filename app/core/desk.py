@@ -53,6 +53,7 @@ class LabDesk(QWidget):
         self.basins = BasinsOfAttraction(self.ctx)
         self.basins_params = {
             "skip": cfg.basins_skip,
+            "iter": cfg.basins_iter,
             "h": None,
             "alpha": None,
             "c": cfg.C,
@@ -86,41 +87,39 @@ class LabDesk(QWidget):
 
     def update_root_sequence(self, s):
         try:
-            if self.root_seq is not None:
-                return self.root_seq
+            l = list(map(int, s.split()))
+            if len(l) == 0 or not all(map(lambda x: x <= 2, l)):
+                self.root_seq = None
             else:
-                l = list(map(int, s.split()))
-                if len(l) == 0 or not all(map(lambda x: x <= 2, l)):
-                    return None
-                else:
-                    return l
-        except:
-            return None
+                self.root_seq = l
+        except Exception as e:
+            self.root_seq = None
+            raise e
 
     def update_phase_plot_params(self, **kwargs):
         self.phase_params = { **self.phase_params, **kwargs }
 
     def draw_phase(self, img):
         with self.compute_lock:
-            return self.phase_plot.compute(self.queue, img, **self.phase_params)
+            return self.phase_plot.compute(self.queue, img, root_seq=self.root_seq, **self.phase_params)
 
     def update_basins_params(self, **kwargs):
         self.basins_params = { **self.basins_params, **kwargs }
 
     def draw_basins(self, img):
         with self.compute_lock:
-            return self.basins.compute(self.queue, img, **self.basins_params)
+            return self.basins.compute(self.queue, img, root_seq=self.root_seq, **self.basins_params)
 
     def update_param_map_params(self, **kwargs):
         self.param_map_params = { **self.param_map_params, **kwargs }
 
     def draw_param_map(self, img):
         with self.compute_lock:
-            return self.param_map.compute(self.queue, img, **self.param_map_params)
+            return self.param_map.compute(self.queue, img, root_seq=self.root_seq, **self.param_map_params)
 
     def update_bif_tree_params(self, **kwargs):
         self.bif_tree_params = { **self.bif_tree_params, **kwargs }
 
     def draw_bif_tree(self, img):
         with self.compute_lock:
-            return self.bif_tree.compute(self.queue, img, **self.bif_tree_params)
+            return self.bif_tree.compute(self.queue, img, root_seq=self.root_seq, **self.bif_tree_params)

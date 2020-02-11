@@ -37,7 +37,7 @@ class CourseWork(SimpleApp):
         self.desk = LabDesk(self.ctx, self.queue)
 
         self.left_image = CLImg(self.ctx, (512, 512))
-        self.right_image = CLImg(self.ctx, (512, 512))
+        self.right_image = CLImg(self.ctx, (200, 200))
 
         # left widget is for parameter-related stuff
         self.left_wgt = make_param_wgt(cfg.h_bounds, cfg.alpha_bounds, cfg.param_map_image_shape)
@@ -82,7 +82,8 @@ class CourseWork(SimpleApp):
         self.right_wgts = {
             "phase":  self.draw_phase,
             "basins (dev)": lambda: self.draw_basins(method="dev"),
-            "basins (host)": lambda: self.draw_basins(method="host")
+            "basins (host)": lambda: self.draw_basins(method="host"),
+            "basins (periods)": lambda: self.draw_basins(method="periods"),
         }
         self.right_mode_cmb.addItems(self.right_wgts.keys())
 
@@ -207,7 +208,7 @@ class CourseWork(SimpleApp):
             alpha=alpha,
             z0=cfg.phase_z0 if not cfg.phase_plot_select_point else complex(
                 *self.right_wgt.value()),
-            clear=self.clear_cb.isChecked()
+            clear=self.clear_cb.isChecked(),
         )
 
         self.right_wgt.setImage(

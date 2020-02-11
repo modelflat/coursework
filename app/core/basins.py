@@ -11,17 +11,22 @@ class BasinsOfAttraction:
         self.ctx = ctx
         self.prg = build_program_from_file(ctx, "basins.cl")
 
-    def compute(self, queue, img, skip, h, alpha, c, bounds,
+    def compute(self, queue, img, skip, iter, h, alpha, c, bounds,
                 root_seq=None, method="dev", scale_factor=1, seed=None):
-        points = numpy.empty((numpy.prod(img.shape), 2), dtype=real_type)
+        if method not in {'periods'}:
+            iter = 1
+
+        points = numpy.empty((numpy.prod(img.shape) * iter, 2), dtype=real_type)
         points_dev = alloc_like(self.ctx, points)
 
         seq_size, seq = prepare_root_seq(self.ctx, root_seq)
 
-        self.prg.compute_basins(
-            queue, (img.shape[0] // scale_factor, img.shape[1] // scale_factor), None,
+        self.prg.capture_points(
+            queue, img.shape, None,
 
             numpy.int32(skip),
+            numpy.int32(iter),
+
             numpy.array(bounds, dtype=real_type),
             numpy.array((c.real, c.imag), dtype=real_type),
             real_type(h),
@@ -51,12 +56,28 @@ class BasinsOfAttraction:
                 img.dev
             )
         elif method == "dev":
-            self.prg.draw_basins(
+            self.prg.color_basins_section(
                 queue, img.shape, None,
                 numpy.int32(scale_factor),
                 numpy.array(bounds, dtype=real_type),
                 points_dev,
                 img.dev
+            )
+        elif method == "periods":
+            periods_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, 4 * points.shape[0])
+
+            self.prg.compute_periods(
+                queue, img.shape, None,
+                numpy.int32(iter),
+                points_dev,
+                periods_dev,
+            )
+
+            self.prg.color_basins_periods(
+                queue, img.shape, None,
+                numpy.int32(iter),
+                periods_dev,
+                img.dev,
             )
         else:
             raise ValueError("Unknown method: \"{}\"".format(method))

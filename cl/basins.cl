@@ -2,9 +2,10 @@
 #include "util.clh"
 
 
-// Compute where points would be after N iterations
-kernel void compute_basins(
+// capture `iter` points after `skip` iterations
+kernel void capture_points(
     const int skip,
+    const int iter,
 
     const real4 bounds,
 
@@ -16,7 +17,7 @@ kernel void compute_basins(
     const int seq_size,
     const global int* seq,
 
-    global real* endpoints
+    global real* points
 ) {
     newton_state state;
     ns_init(
@@ -31,15 +32,46 @@ kernel void compute_basins(
 
     const int2 coord = COORD_2D_INV_Y;
 
-    vstore2(
-        round_point(state.z, 4),
-        coord.y * get_global_size(0) + coord.x,
-        endpoints
-    );
+    const size_t seq_start_coord = (coord.y * get_global_size(0) + coord.x) * iter;
+
+    for (int i = 0; i < iter; ++i) {
+        ns_next(&state);
+
+        vstore2(
+            round_point(state.z, 4),
+            seq_start_coord + i,
+            points
+        );
+    }
 }
 
-// Draw basins' bounds and color them approximately
-kernel void draw_basins(
+
+kernel void compute_periods(
+    const int iter,
+    const global real* points,
+    global int* periods
+) {
+    const int2 coord = COORD_2D_INV_Y;
+
+    const size_t seq_start_coord = (coord.y * get_global_size(0) + coord.x);
+
+    periods += seq_start_coord;
+
+    real2 base_point = vload2(seq_start_coord * iter, points);
+
+    for (int i = 1; i < iter; ++i) {
+        real2 point = vload2(seq_start_coord * iter + i, points);
+        if (length(point - base_point) < 1e-4) {
+            *periods = i;
+            return;
+        }
+    }
+
+    *periods = iter;
+}
+
+
+kernel void color_basins_section(
     const int scale_factor,
     const real4 bounds,
     const global real* endpoints,
@@ -114,6 +146,59 @@ kernel void draw_basins(
     write_imagef(image, COORD_2D_INV_Y, color);
 }
 
+
+kernel void color_basins_periods(
+    const int iter,
+    const global int* periods,
+    write_only image2d_t image
+) {
+    // NOTE y flipped to correspond to compute_basins
+    const int2 coord = COORD_2D_INV_Y;
+
+    const int size_x = get_global_size(0);
+
+    const int end = periods[coord.y * size_x + coord.x];
+
+//    float edge = 1.0;
+//
+//    if (coord.x > 0) {
+//        const int west_end = periods[coord.y * size_x + coord.x - 1];
+//        if (west_end != end) {
+//            edge -= 0.25f;
+//        }
+//    }
+//
+//    if (coord.x < get_global_size(1) - 1) {
+//        const int east_end = periods[coord.y * size_x + coord.x + 1];
+//        if (east_end != end) {
+//            edge -= 0.25f;
+//        }
+//    }
+//
+//    if (coord.y > 0) {
+//        const int north_end = periods[(coord.y - 1) * size_x + coord.x];
+//        if (north_end != end) {
+//            edge -= 0.25f;
+//        }
+//    }
+//
+//    if (coord.y < get_global_size(1) - 1) {
+//        const int south_end = periods[(coord.y + 1) * size_x + coord.x];
+//        if (south_end != end) {
+//            edge -= 0.25f;
+//        }
+//    }
+//
+//    float3 hsv_color = hsv_for_count(end, iter);
+//
+////    hsv_color.z = edge;
+
+    float4 color = (float4)(color_for_count_old(end, iter), 1.0);
+
+    write_imagef(image, COORD_2D_INV_Y, color);
+}
+
+
 // Draw basins in precise colors
 kernel void draw_basins_colored(
     const int scale_factor,
@@ -136,3 +221,4 @@ kernel void draw_basins_colored(
 
     write_imagef(map, COORD_2D_INV_Y, color);
 }
+

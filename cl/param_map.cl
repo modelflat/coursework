@@ -2,35 +2,6 @@
 #include "heapsort.clh"
 #include "util.clh"
 
-//inline real2 round_point(real2 point, int to_sign) {
-//    return convert_real2(convert_long2_rtz(point * pow(10.0f, (float)to_sign))) / pow(10.0f, (float)(to_sign));
-//}
-
-inline float3 color_for_count(int count, int total) {
-    if (count == total) {
-        return 0.25;
-    }
-    const float d = 1.0 / count * 8;
-    switch(count % 8) {
-        case 1:
-            return (float3)(1.0, 0.0, 0.0)*d;
-        case 2:
-            return (float3)(0.0, 1.0, 0.0)*d;
-        case 3:
-            return (float3)(0.0, 0.0, 1.0)*d;
-        case 4:
-            return (float3)(1.0, 0.0, 1.0)*d;
-        case 5:
-            return (float3)(1.0, 1.0, 0.0)*d;
-        case 6:
-            return (float3)(0.0, 1.0, 1.0)*d;
-        case 7:
-            return (float3)(0.5, 0.0, 0.0)*d;
-        default:
-            return count == 8 ? .5 : d;
-    }
-}
-
 // Compute samples for parameter map
 kernel void compute_points(
     const real2 z0,

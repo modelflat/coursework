@@ -78,7 +78,7 @@ kernel void fast_param_map(
     periods[coord.y * get_global_size(0) + coord.x] = p + 1;
 
     int confirmed = 0;
-    if (2*p < iter) {
+    if (false && 2*p < iter) {
         // verify period
         for (int i = 0; i < p - 1; ++i) {
             ns_next(&state);
