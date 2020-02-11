@@ -36,8 +36,8 @@ class CourseWork(SimpleApp):
 
         self.desk = LabDesk(self.ctx, self.queue)
 
-        self.left_image = CLImg(self.ctx, (512, 512))
-        self.right_image = CLImg(self.ctx, (200, 200))
+        self.left_image = CLImg(self.ctx, cfg.default_shape)
+        self.right_image = CLImg(self.ctx, cfg.default_shape)
 
         # left widget is for parameter-related stuff
         self.left_wgt = make_param_wgt(cfg.h_bounds, cfg.alpha_bounds, cfg.param_map_image_shape)
@@ -163,7 +163,7 @@ class CourseWork(SimpleApp):
         self.desk.update_root_sequence(self.root_seq_edit.text())
 
     def draw_param_placeholder(self):
-        self.left_wgt.setImage(blank_image((512, 512)))
+        self.left_wgt.setImage(blank_image(cfg.default_shape))
 
     def draw_basins(self, *_, method=None):
         h, alpha = self.left_wgt.value()

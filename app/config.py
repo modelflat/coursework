@@ -1,16 +1,20 @@
 ## general parameters
 seed = 42
 
+default_shape = (512, 512)
+
 # range for varying `h`
 # h_bounds = (-0.5, 0.5)
 # h_bounds = (-10, 10)
 # h_bounds = (-6, 6)
-h_bounds = (-0.05, 0)
+h_bounds = (-6, 1e-6)
+# h_bounds = (-0.2, 0)
 
 # range for varying `alpha`
 # alpha_bounds = (0, 2)
 # alpha_bounds = (0.0, 1.000)
 alpha_bounds = (0.5, 1.000)
+# alpha_bounds = (0.5, 0.55)
 
 # `c` constant
 C = complex(-0.5, 0.5)
@@ -19,7 +23,7 @@ C = complex(-0.5, 0.5)
 ## parameter map params
 
 # image size
-param_map_image_shape = (512, 512)
+param_map_image_shape = default_shape
 
 # skip iters on param map
 # param_map_skip = 1 << 4
@@ -54,7 +58,7 @@ param_map_lossless = True
 phase_shape = (-2, 2, -2, 2)
 
 # phase plot image shape
-phase_image_shape = (768, 768)
+phase_image_shape = default_shape
 
 # skip iters on phase plot
 phase_skip = 1 << 10
@@ -80,7 +84,7 @@ basins_resolution = 1
 
 basins_skip = 1 << 6
 
-basins_iter = 1 << 5
+basins_iter = 1 << 6
 
 ## bif tree
 

@@ -159,41 +159,41 @@ kernel void color_basins_periods(
 
     const int end = periods[coord.y * size_x + coord.x];
 
-//    float edge = 1.0;
-//
-//    if (coord.x > 0) {
-//        const int west_end = periods[coord.y * size_x + coord.x - 1];
-//        if (west_end != end) {
-//            edge -= 0.25f;
-//        }
-//    }
-//
-//    if (coord.x < get_global_size(1) - 1) {
-//        const int east_end = periods[coord.y * size_x + coord.x + 1];
-//        if (east_end != end) {
-//            edge -= 0.25f;
-//        }
-//    }
-//
-//    if (coord.y > 0) {
-//        const int north_end = periods[(coord.y - 1) * size_x + coord.x];
-//        if (north_end != end) {
-//            edge -= 0.25f;
-//        }
-//    }
-//
-//    if (coord.y < get_global_size(1) - 1) {
-//        const int south_end = periods[(coord.y + 1) * size_x + coord.x];
-//        if (south_end != end) {
-//            edge -= 0.25f;
-//        }
-//    }
+    float edge = 1.0;
+
+    if (coord.x > 0) {
+        const int west_end = periods[coord.y * size_x + coord.x - 1];
+        if (west_end != end) {
+            edge -= 0.25f;
+        }
+    }
+
+    if (coord.x < get_global_size(1) - 1) {
+        const int east_end = periods[coord.y * size_x + coord.x + 1];
+        if (east_end != end) {
+            edge -= 0.25f;
+        }
+    }
+
+    if (coord.y > 0) {
+        const int north_end = periods[(coord.y - 1) * size_x + coord.x];
+        if (north_end != end) {
+            edge -= 0.25f;
+        }
+    }
+
+    if (coord.y < get_global_size(1) - 1) {
+        const int south_end = periods[(coord.y + 1) * size_x + coord.x];
+        if (south_end != end) {
+            edge -= 0.25f;
+        }
+    }
 //
 //    float3 hsv_color = hsv_for_count(end, iter);
 //
 ////    hsv_color.z = edge;
 
-    float4 color = (float4)(color_for_count_old(end, iter), 1.0);
+    float4 color = (float4)(color_for_count_old(end, iter) * edge, 1.0);
 
     write_imagef(image, COORD_2D_INV_Y, color);
 }
