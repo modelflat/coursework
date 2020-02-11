@@ -81,8 +81,7 @@ class CourseWork(SimpleApp):
 
         self.right_wgts = {
             "phase":  self.draw_phase,
-            "basins (dev)": lambda: self.draw_basins(method="dev"),
-            "basins (host)": lambda: self.draw_basins(method="host"),
+            "basins (sections)": lambda: self.draw_basins(method="sections"),
             "basins (periods)": lambda: self.draw_basins(method="periods"),
         }
         self.right_mode_cmb.addItems(self.right_wgts.keys())
@@ -179,7 +178,7 @@ class CourseWork(SimpleApp):
 
     def draw_param_map(self, *_):
         self.parse_root_sequence()
-        print("Start computing parameter map")
+        # print("Start computing parameter map")
         t = time.perf_counter()
 
         if cfg.param_map_select_z0_from_phase:
@@ -194,7 +193,7 @@ class CourseWork(SimpleApp):
 
         image, periods = self.desk.draw_param_map(self.left_image)
 
-        print("Computed parameter map in {:.3f} s".format(time.perf_counter() - t))
+        # print("Computed parameter map in {:.3f} s".format(time.perf_counter() - t))
 
         self.left_wgt.setImage(image)
         self.period_map = periods
@@ -255,7 +254,6 @@ class CourseWork(SimpleApp):
         if self.period_map is not None:
             x_px = max(min(cfg.param_map_image_shape[0] // cfg.param_map_resolution - 1, x_px), 0)
             y_px = max(min(cfg.param_map_image_shape[1] // cfg.param_map_resolution - 1, y_px), 0)
-            # print(x_px, y_px)
             y, x = int(y_px), int(x_px)
             per = self.period_map[y][x]
             self.period_label.setText(

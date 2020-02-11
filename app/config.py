@@ -7,14 +7,14 @@ default_shape = (512, 512)
 # h_bounds = (-0.5, 0.5)
 # h_bounds = (-10, 10)
 # h_bounds = (-6, 6)
-h_bounds = (-6, 1e-6)
-# h_bounds = (-0.2, 0)
+# h_bounds = (-4.3114, -4.31)
+h_bounds = (-6, 0)
 
 # range for varying `alpha`
 # alpha_bounds = (0, 2)
 # alpha_bounds = (0.0, 1.000)
-alpha_bounds = (0.5, 1.000)
-# alpha_bounds = (0.5, 0.55)
+# alpha_bounds = (0.6044, 0.6045)
+alpha_bounds = (0.5, 1.0)
 
 # `c` constant
 C = complex(-0.5, 0.5)
@@ -42,13 +42,13 @@ param_map_z0 = complex(-0.3, 0.1)
 param_map_select_z0_from_phase = True
 
 # resolution
-param_map_resolution = 4
+param_map_resolution = 1
 
 
 param_map_draw_on_select = True
 
 
-param_map_lossless = True
+param_map_lossless = False
 
 
 ## phase plot params
@@ -82,9 +82,11 @@ basins_image_shape = param_map_image_shape
 
 basins_resolution = 1
 
-basins_skip = 1 << 6
+basins_skip = param_map_skip
 
-basins_iter = 1 << 6
+basins_iter = param_map_iter
+
+basins_tolerance = param_map_tolerance
 
 ## bif tree
 

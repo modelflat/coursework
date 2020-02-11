@@ -4,7 +4,7 @@
 
 inline float3 _color_for_count(int count, int total) {
     if (count == total) {
-        return 0.25;
+        return 0.0;
     }
     const float d = 1.0 / count * 8;
     switch(count % 8) {
@@ -70,23 +70,14 @@ kernel void fast_param_map(
     for (int i = 0; i < iter; ++i) {
         ns_next(&state);
         if (all(fabs(base - state.z) < tol)) {
-            p = i;
+            p = i + 1;
             break;
         }
     }
 
-    periods[coord.y * get_global_size(0) + coord.x] = p + 1;
+    periods[coord.y * get_global_size(0) + coord.x] = p;
 
-    int confirmed = 0;
-    if (false && 2*p < iter) {
-        // verify period
-        for (int i = 0; i < p - 1; ++i) {
-            ns_next(&state);
-        }
-        confirmed = all(fabs(base - state.z) < tol);
-    }
-
-    float3 color = _color_for_count(p + 1, iter) * (confirmed ? 1.0f : 0.5f);
+    float3 color = _color_for_count(p, iter);
     write_imagef(out, coord, (float4)(color, 1.0));
 }
 
