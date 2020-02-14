@@ -6,6 +6,7 @@ import pyopencl as cl
 
 
 os.environ["PYOPENCL_NO_CACHE"] = "1"
+os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1"
 
 
 def get_endianness(ctx: cl.Context):

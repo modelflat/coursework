@@ -41,9 +41,6 @@ param_map_z0 = complex(-0.3, 0.1)
 # enable phase space selection
 param_map_select_z0_from_phase = True
 
-# resolution
-param_map_resolution = 1
-
 
 param_map_draw_on_select = True
 
@@ -79,8 +76,6 @@ phase_z0 = None
 ## basins params
 
 basins_image_shape = param_map_image_shape
-
-basins_resolution = 1
 
 basins_skip = param_map_skip
 

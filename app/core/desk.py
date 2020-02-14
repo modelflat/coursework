@@ -46,7 +46,6 @@ class LabDesk(QWidget):
             "tol": cfg.param_map_tolerance,
             "bounds": param_bounds,
             "method": "fast",
-            "scale_factor": cfg.param_map_resolution,
             "seed": None
         }
 
@@ -59,7 +58,6 @@ class LabDesk(QWidget):
             "c": cfg.C,
             "bounds": cfg.phase_shape,
             "method": "dev",
-            "scale_factor": cfg.basins_resolution
         }
 
         self.phase_plot = PhasePlot(self.ctx)

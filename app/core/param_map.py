@@ -10,15 +10,15 @@ class ParameterMap:
 
     def __init__(self, ctx):
         self.ctx = ctx
-        self.prg = build_program_from_file(ctx, ("param_map.cl", "fast_param_map.cl"))
+        self.prg = build_program_from_file(ctx, ("param_map.cl",))
         self.map_points = None
 
-    def _compute_precise(self, queue, skip, iter, z0, c, tol, bounds, root_seq, scale_factor, img, seed=None):
+    def _compute_precise(self, queue, skip, iter, z0, c, tol, bounds, root_seq, img, seed=None):
 
         shape = img.shape
 
         elem_size = real_type().nbytes
-        reqd_size = iter * numpy.prod(shape) // scale_factor ** 2
+        reqd_size = iter * numpy.prod(shape)
 
         if self.map_points is None or self.map_points.size != reqd_size:
             self.map_points = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=reqd_size * elem_size)
@@ -28,7 +28,7 @@ class ParameterMap:
         seq_size, seq = prepare_root_seq(self.ctx, root_seq)
 
         self.prg.compute_points(
-            queue, (shape[0] // scale_factor, shape[1] // scale_factor), (1, 1),
+            queue, (shape[0], shape[1]), (1, 1),
             # z0
             numpy.array((z0.real, z0.imag), dtype=real_type),
             # c
@@ -51,13 +51,12 @@ class ParameterMap:
             buf
         )
 
-        periods = numpy.empty((shape[0] // scale_factor, shape[1] // scale_factor),
+        periods = numpy.empty((shape[0], shape[1]),
                               dtype=numpy.int32)
         periods_device = alloc_like(self.ctx, periods)
 
         self.prg.draw_periods(
             queue, shape, None,
-            numpy.int32(scale_factor),
             numpy.int32(iter),
             buf,
             periods_device,
@@ -89,7 +88,7 @@ class ParameterMap:
             # iter
             numpy.int32(iter),
             # tol
-            numpy.float32(tol),
+            real_type(tol),
             # seed
             numpy.uint64(seed if seed is not None else random_seed()),
             # seq size
@@ -106,14 +105,11 @@ class ParameterMap:
 
         return img.read(queue), periods
 
-    def compute(self, queue, img, skip, iter, z0, c, tol, bounds,
-                root_seq=None, method="fast", scale_factor=None, seed=None):
+    def compute(self, queue, img, skip, iter, z0, c, tol, bounds, root_seq=None, method="fast", seed=None):
         if method == "fast":
-            if scale_factor is not None:
-                pass  # TODO show warning that scale factor will be ignored
             return self._compute_fast(queue, skip, iter, z0, c, tol, bounds, root_seq, img, seed)
         if method == "precise":
-            return self._compute_precise(queue, skip, iter, z0, c, tol, bounds, root_seq, scale_factor, img, seed)
+            return self._compute_precise(queue, skip, iter, z0, c, tol, bounds, root_seq, img, seed)
 
         raise RuntimeError("Unknown method: '{}'".format(method))
 

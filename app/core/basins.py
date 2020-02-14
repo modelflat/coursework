@@ -1,5 +1,6 @@
 import numpy
 import pyopencl as cl
+import cv2
 
 from . import build_program_from_file
 from .utils import prepare_root_seq, random_seed, alloc_like, real_type, copy_dev
@@ -12,7 +13,7 @@ class BasinsOfAttraction:
         self.prg = build_program_from_file(ctx, "basins.cl")
 
     def compute(self, queue, img, skip, iter, h, alpha, c, bounds,
-                root_seq=None, method="sections", scale_factor=1, tolerance=1e-4, seed=None):
+                root_seq=None, method="sections", tolerance=1e-4, attractor_min_dist=1e-2, seed=None):
         points = numpy.empty((numpy.prod(img.shape), 2), dtype=real_type)
         points_dev = alloc_like(self.ctx, points)
 
@@ -44,7 +45,6 @@ class BasinsOfAttraction:
         if method == "sections":
             self.prg.color_basins_section(
                 queue, img.shape, None,
-                numpy.int32(scale_factor),
                 numpy.array(bounds, dtype=real_type),
                 points_dev,
                 img.dev
@@ -54,6 +54,16 @@ class BasinsOfAttraction:
                 queue, img.shape, None,
                 numpy.int32(iter),
                 periods_dev,
+                img.dev,
+            )
+        elif method == "periods+attractors":
+            self.prg.color_basins_periods_attractors(
+                queue, img.shape, None,
+                numpy.int32(iter),
+                real_type(attractor_min_dist),
+                numpy.array(bounds, dtype=real_type),
+                periods_dev,
+                points_dev,
                 img.dev,
             )
         else:

@@ -15,7 +15,11 @@ numpy.random.seed(cfg.seed)
 
 def make_phase_wgt(space_shape, image_shape):
     return ParameterizedImageWidget(
-        space_shape, ("z_real", "z_imag"), shape=(True, True), textureShape=image_shape,
+        bounds=space_shape,
+        names=("z_real", "z_imag"),
+        shape=(True, True),
+        textureShape=image_shape,
+        targetColor=Qt.gray
     )
 
 
@@ -83,6 +87,7 @@ class CourseWork(SimpleApp):
             "phase":  self.draw_phase,
             "basins (sections)": lambda: self.draw_basins(method="sections"),
             "basins (periods)": lambda: self.draw_basins(method="periods"),
+            "basins (periods+attractors)": lambda: self.draw_basins(method="periods+attractors"),
         }
         self.right_mode_cmb.addItems(self.right_wgts.keys())
 
@@ -249,15 +254,13 @@ class CourseWork(SimpleApp):
 
     def set_period_label(self):
         x_px, y_px = self.left_wgt._imageWidget.targetPx()
-        x_px //= cfg.param_map_resolution
-        y_px //= cfg.param_map_resolution
         if self.period_map is not None:
-            x_px = max(min(cfg.param_map_image_shape[0] // cfg.param_map_resolution - 1, x_px), 0)
-            y_px = max(min(cfg.param_map_image_shape[1] // cfg.param_map_resolution - 1, y_px), 0)
+            x_px = max(min(cfg.param_map_image_shape[0] - 1, x_px), 0)
+            y_px = max(min(cfg.param_map_image_shape[1] - 1, y_px), 0)
             y, x = int(y_px), int(x_px)
             per = self.period_map[y][x]
             self.period_label.setText(
-                "Detected period: {}".format("<chaos({})>".format(per) if per > 0.25 * cfg.param_map_iter else per)
+                "Detected period: {}".format("<chaos({})>".format(per) if per > 0.5 * cfg.param_map_iter else per)
             )
 
     def set_values_no_signal(self, h, alpha):

@@ -1,7 +1,6 @@
 #include "newton.clh"
 #include "util.clh"
 
-
 // capture points and periods after `skip + iter` iterations
 kernel void capture_points(
     const int skip,
@@ -57,64 +56,54 @@ kernel void capture_points(
     vstore2(round_point(state.z, 4), seq_start_coord, points);
 }
 
-
+// color computed basins by section of a phase surface to which attractor belongs to
 kernel void color_basins_section(
-    const int scale_factor,
     const real4 bounds,
-    const global real* endpoints,
+    const global real* points,
     write_only image2d_t image
 ) {
     // NOTE y flipped to correspond to compute_basins
-    const int2 coord = COORD_2D_INV_Y / scale_factor;
-    const int size_x = get_global_size(0) / scale_factor;
+    const int2 coord = COORD_2D_INV_Y;
+    const int size_x = get_global_size(0);
 
-    const real2 origin = point_from_id_dense(bounds);
-    const real2 end = vload2(coord.y * size_x + coord.x, endpoints);
+    const real2 end = vload2(coord.y * size_x + coord.x, points);
 
     real x_gran = (real)(1) / (get_global_size(0) - 1);
     real y_gran = (real)(1) / (get_global_size(1) - 1);
-    real av_len = 0.0;
     float edge = 1.0;
 
     if (coord.x > 0) {
-        const real2 west_end = vload2(coord.y * size_x + coord.x - 1, endpoints);
+        const real2 west_end = vload2(coord.y * size_x + coord.x - 1, points);
         const real dst = length(west_end - end);
-        av_len += dst;
         if (dst > x_gran) {
             edge -= 0.25f;
         }
     }
 
-    if (coord.x < get_global_size(1) - 1) {
-        const real2 east_end = vload2(coord.y * size_x + coord.x + 1, endpoints);
+    if (coord.x < (int)get_global_size(1) - 1) {
+        const real2 east_end = vload2(coord.y * size_x + coord.x + 1, points);
         const real dst = length(east_end - end);
-        av_len += dst;
         if (dst > x_gran) {
             edge -= 0.25f;
         }
     }
 
     if (coord.y > 0) {
-        const real2 north_end = vload2((coord.y - 1) * size_x + coord.x, endpoints);
+        const real2 north_end = vload2((coord.y - 1) * size_x + coord.x, points);
         const real dst = length(north_end - end);
-        av_len += dst;
         if (dst > y_gran) {
             edge -= 0.25f;
         }
     }
 
-    if (coord.y < get_global_size(1) - 1) {
-        const real2 south_end = vload2((coord.y + 1) * size_x + coord.x, endpoints);
+    if (coord.y < (int)get_global_size(1) - 1) {
+        const real2 south_end = vload2((coord.y + 1) * size_x + coord.x, points);
         const real dst = length(south_end - end);
-        av_len += dst;
         if (dst > y_gran) {
             edge -= 0.25f;
         }
     }
 
-    av_len /= 4;
-
-    float mod = 0.005 / length(end - origin);
     float col = 240;
     float value = 0.8;
 
@@ -133,7 +122,7 @@ kernel void color_basins_section(
     write_imagef(image, COORD_2D_INV_Y, color);
 }
 
-
+// color computed basins by period
 kernel void color_basins_periods(
     const int iter,
     const global int* periods,
@@ -141,42 +130,70 @@ kernel void color_basins_periods(
 ) {
     // NOTE y flipped to correspond to compute_basins
     const int2 coord = COORD_2D_INV_Y;
-
     const int size_x = get_global_size(0);
 
     const int end = periods[coord.y * size_x + coord.x];
+    float4 color = (float4)(color_for_count_old(end, iter), 1.0);
+
+    write_imagef(image, COORD_2D_INV_Y, color);
+}
+
+// color computed basins by period, and draw bounds between different attractors
+kernel void color_basins_periods_attractors(
+    const int iter,
+    const real attractor_min_dist,
+    const real4 bounds,
+    const global int* periods,
+    const global real* points,
+    write_only image2d_t image
+) {
+    // NOTE y flipped to correspond to compute_basins
+    const int2 coord = COORD_2D_INV_Y;
+    const int size_x = get_global_size(0);
+
+    const real2 attractor = vload2(coord.y * size_x + coord.x, points);
 
     float edge = 1.0;
 
-//    if (coord.x > 0) {
-//        const int west_end = periods[coord.y * size_x + coord.x - 1];
-//        if (west_end != end) {
-//            edge -= 0.25f;
-//        }
-//    }
-//
-//    if (coord.x < get_global_size(1) - 1) {
-//        const int east_end = periods[coord.y * size_x + coord.x + 1];
-//        if (east_end != end) {
-//            edge -= 0.25f;
-//        }
-//    }
-//
-//    if (coord.y > 0) {
-//        const int north_end = periods[(coord.y - 1) * size_x + coord.x];
-//        if (north_end != end) {
-//            edge -= 0.25f;
-//        }
-//    }
-//
-//    if (coord.y < get_global_size(1) - 1) {
-//        const int south_end = periods[(coord.y + 1) * size_x + coord.x];
-//        if (south_end != end) {
-//            edge -= 0.25f;
-//        }
-//    }
+    if (coord.x > 0) {
+        const real2 west_end = vload2(coord.y * size_x + coord.x - 1, points);
+        const real dst = length(west_end - attractor);
+        if (attractor_min_dist < dst) {
+            edge -= 0.25f;
+        }
+    }
 
-    float4 color = (float4)(color_for_count_old(end, iter) * edge, 1.0);
+    if (coord.x < (int)get_global_size(1) - 1) {
+        const real2 east_end = vload2(coord.y * size_x + coord.x + 1, points);
+        const real dst = length(east_end - attractor);
+        if (attractor_min_dist < dst) {
+            edge -= 0.25f;
+        }
+    }
+
+    if (coord.y > 0) {
+        const real2 north_end = vload2((coord.y - 1) * size_x + coord.x, points);
+        const real dst = length(north_end - attractor);
+        if (attractor_min_dist < dst) {
+            edge -= 0.25f;
+        }
+    }
+
+    if (coord.y < (int)get_global_size(1) - 1) {
+        const real2 south_end = vload2((coord.y + 1) * size_x + coord.x, points);
+        const real dst = length(south_end - attractor);
+        if (attractor_min_dist < dst) {
+            edge -= 0.25f;
+        }
+    }
+
+    float4 color;
+    if (edge < 1.0) {
+        color = (float4)(0.95, 0.95, 0.95, 1.0);
+    } else {
+        const int period = periods[coord.y * size_x + coord.x];
+        color = (float4)(color_for_count_old(period, iter), 1.0);
+    }
 
     write_imagef(image, COORD_2D_INV_Y, color);
 }

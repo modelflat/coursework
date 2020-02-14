@@ -19,8 +19,9 @@ def build_program_from_file(ctx, file_name, root_path=CL_SOURCE_PATH, include_pa
         src = "\n".join([read_file(os.path.join(root_path, fn)) for fn in file_name])
 
     return cl.Program(ctx, src).build(options=[
-        "-w", "-I", include_path, *options,
+        "-I", include_path, *options,
         "-cl-strict-aliasing",
         "-cl-single-precision-constant",
-        "-cl-no-signed-zeros"
+        "-cl-no-signed-zeros",
+        "-Werror"
     ])
