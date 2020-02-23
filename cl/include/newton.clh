@@ -11,9 +11,9 @@
 typedef struct {
     real2 z, c;
     real h, alpha, eps;
-    uint2 rng_state;
     int seq_pos, seq_size;
     const global int* seq;
+    uint2 rng_state;
     real2 roots[3];
 } newton_state;
 
@@ -27,11 +27,10 @@ inline void ns_init(
     s->h = h;
     s->alpha = alpha;
     s->eps = -h * (1 - alpha) / 3;
-    //            -h / 6
-    init_state(seed, &s->rng_state);
     s->seq_pos = 0;
     s->seq_size = seq_size;
     s->seq = seq;
+    init_state(seed, &s->rng_state);
 }
 
 

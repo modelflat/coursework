@@ -145,6 +145,7 @@ kernel void color_basins_periods_attractors(
     const real4 bounds,
     const global int* periods,
     const global real* points,
+    global uchar* contours,
     write_only image2d_t image
 ) {
     // NOTE y flipped to correspond to compute_basins
@@ -152,6 +153,8 @@ kernel void color_basins_periods_attractors(
     const int size_x = get_global_size(0);
 
     const real2 attractor = vload2(coord.y * size_x + coord.x, points);
+
+    contours += coord.y * size_x + coord.x;
 
     float edge = 1.0;
 
@@ -189,10 +192,54 @@ kernel void color_basins_periods_attractors(
 
     float4 color;
     if (edge < 1.0) {
+        *contours = 0;
         color = (float4)(0.95, 0.95, 0.95, 1.0);
     } else {
+        *contours = 255;
         const int period = periods[coord.y * size_x + coord.x];
         color = (float4)(color_for_count_old(period, iter), 1.0);
+    }
+
+    write_imagef(image, COORD_2D_INV_Y, color);
+}
+
+//
+kernel void color_basins_attractors(
+    const global real* points,
+    const global real* data,
+    const global int* labels,
+    const global float* colors,
+    const global int* flags,
+    write_only image2d_t image
+) {
+    // NOTE y flipped to correspond to compute_basins
+    const int2 coord = COORD_2D_INV_Y;
+    const int size_x = get_global_size(0);
+
+    const int label = labels[coord.y * size_x + coord.x];
+
+    const int flag = flags[label];
+
+    float4 color;
+    if (flag == 0) {
+        // skipped
+        color = (float4)(1.0f, 1.0f, 1.0f, 1.0f);
+    } else if ((flag & 1) != 0) {
+        if ((flag & 2) != 0) {
+            // suspicious attractor
+            // TODO
+            float3 hsv = vload3(label, colors);
+            color = hsv2rgb(hsv);
+        } else {
+            // suspicious region
+            real8 d = vload8(label, data);
+            (void)d;
+            color = (float4)(0.0f, 0.0f, 0.0f, 1.0f);
+        }
+    } else {
+        // attractor
+        float3 hsv = vload3(label, colors);
+        color = hsv2rgb(hsv);
     }
 
     write_imagef(image, COORD_2D_INV_Y, color);

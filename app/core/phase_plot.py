@@ -6,10 +6,9 @@ from .utils import prepare_root_seq, random_seed, real_type
 
 class PhasePlot:
 
-    def __init__(self, ctx):
+    def __init__(self, ctx, point_radius=1):
         self.ctx = ctx
-        self.prg = build_program_from_file(ctx, "phase_plot.cl",
-                                           options=("-DPOINT_RADIUS=1", ))
+        self.prg = build_program_from_file(ctx, "phase_plot.cl", options=(f"-DPOINT_RADIUS={point_radius}",))
 
     def compute(self, queue, img, skip, iter, h, alpha, c, bounds, grid_size,
                 z0=None, root_seq=None, clear=True, seed=None):

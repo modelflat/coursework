@@ -90,9 +90,9 @@ class LabDesk(QWidget):
                 self.root_seq = None
             else:
                 self.root_seq = l
-        except Exception as e:
+        except ValueError as e:
             self.root_seq = None
-            raise e
+            print(e)
 
     def update_phase_plot_params(self, **kwargs):
         self.phase_params = { **self.phase_params, **kwargs }

@@ -23,13 +23,13 @@ def alloc_image(ctx: cl.Context, dim: tuple, flags=cl.mem_flags.READ_WRITE):
     if endianness == "both":
         raise RuntimeError("Context has both little and big endian devices, which is not currently supported")
     elif endianness == sys.byteorder:
-        chOrder = cl.channel_order.BGRA
+        order = cl.channel_order.BGRA
     else:
         if endianness == "little":
-            chOrder = cl.channel_order.BGRA
+            order = cl.channel_order.BGRA
         else:
-            chOrder = cl.channel_order.ARGB
-    fmt = cl.ImageFormat(chOrder, cl.channel_type.UNORM_INT8)
+            order = cl.channel_order.ARGB
+    fmt = cl.ImageFormat(order, cl.channel_type.UNORM_INT8)
     return numpy.empty((*dim, 4), dtype=numpy.uint8), cl.Image(ctx, flags, fmt, shape=dim)
 
 
