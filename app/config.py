@@ -1,7 +1,7 @@
 ## general parameters
 seed = 42
 
-default_shape = (512, 512)
+default_shape = (768, 768)
 
 # range for varying `h`
 # h_bounds = (-0.5, 0.5)
@@ -27,7 +27,7 @@ param_map_image_shape = default_shape
 
 # skip iters on param map
 # param_map_skip = 1 << 4
-param_map_skip = 1 << 6
+param_map_skip = 1 << 8
 
 # iters on param map
 param_map_iter = 1 << 6
