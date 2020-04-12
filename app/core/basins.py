@@ -11,6 +11,9 @@ from . import build_program_from_file
 from .utils import prepare_root_seq, random_seed, alloc_like, real_type, copy_dev
 
 
+complex_t = numpy.complex64 if real_type == numpy.float32 else numpy.complex128
+
+
 class BasinsOfAttraction:
 
     def __init__(self, ctx):
@@ -83,35 +86,50 @@ class BasinsOfAttraction:
             min_std = 1 / 10 ** (tolerance_decimals * 2)
             min_points_in_region = 4
 
-            # todo use OpenCV/OpenCL interop
+            # note: we can also use OpenCV/OpenCL interop here
             n_labels, labels = cv2.connectedComponents(contours)
-
             labels_dev = copy_dev(self.ctx, labels)
 
-            contours = contours.reshape(numpy.prod(img.shape))
+            t = time.perf_counter()
+
+            label_count = numpy.empty((n_labels,), dtype=numpy.int32)
+            label_count_dev = alloc_like(self.ctx, label_count)
+            label_end_indexes_dev = alloc_like(self.ctx, label_count)
+            points_sorted_dev = alloc_like(self.ctx, points)
+
+            self.prg.prepare_region(
+                queue, img.shape, None,
+                labels_dev, label_count_dev
+            )
+            cl.enqueue_copy(queue, label_count, label_count_dev)
+
+            label_end_indexes = numpy.cumsum(label_count, dtype=numpy.int32)
+            cl.enqueue_copy(queue, label_end_indexes_dev, label_end_indexes)
+
+            self.prg.sort_points_by_region(
+                queue, img.shape, None,
+                points_dev, labels_dev,
+                label_end_indexes_dev, label_count_dev,
+                points_sorted_dev
+            )
+            cl.enqueue_copy(queue, points, points_sorted_dev)
+
+            points_view = points.view(complex_t).reshape((numpy.prod(img.shape),))
 
             suspicious_regions = defaultdict(lambda: list())
             attractors = defaultdict(lambda: list())
             skipped_labels = set()
             suspicious_labels = set()
 
-            complex_t = numpy.complex64 if real_type == numpy.float32 else numpy.complex128
-
-            points_index = [list() for _ in range(n_labels)]
-
-            t = time.perf_counter()
-
-            # TODO this is too slow
-            for label, contour, point in zip(labels.reshape(numpy.prod(img.shape)),
-                                             contours,
-                                             points.view(complex_t).T[0]):
-                if contour == 255:
-                    points_index[label].append(point)
-
-            points_index = [numpy.array(v) for v in points_index]
-
-            for i in range(n_labels):
-                points_in_component = points_index[i]
+            # NOTE: we skip label 0 here, as it will be for contours (brightest part of the image)
+            # controur color = 255 (GRAY)
+            for i, label_end in enumerate(label_end_indexes):
+                if i == 0:
+                    if verbose:
+                        print("Skipping label 0...")
+                    continue
+                else:
+                    points_in_component = points_view[label_end_indexes[i - 1]:label_end]
 
                 if len(points_in_component) < min_points_in_region:
                     if verbose and len(points_in_component) == 0:
@@ -150,7 +168,7 @@ class BasinsOfAttraction:
                     if verbose:
                         print(f'{i:4}: {len(points_in_component):6} suspicious / {mn} : {mx}')
             t = time.perf_counter() - t
-            print(f'analysis: {t:.3} s')
+            print(f'analysis: {t:.3f} s')
 
             # todo add more options
             # lets now try to remove some of the suspicious regions based on the fact that they might

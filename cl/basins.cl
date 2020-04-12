@@ -244,3 +244,31 @@ kernel void color_basins_attractors(
 
     write_imagef(image, COORD_2D_INV_Y, color);
 }
+
+kernel void prepare_region(
+    const global int* labels,
+    global int* label_counts
+) {
+    const int2 coord = COORD_2D_INV_Y;
+    const int id = coord.y * get_global_size(0) + coord.x;
+    const int label = labels[id];
+    // NOTE: the contention of the lock here is extremely high in skewed cases!
+    atomic_inc(label_counts + label);
+}
+
+kernel void sort_points_by_region(
+    const global real* points,
+    const global int* labels,
+    const global int* label_end_indexes,
+    global int* label_counts_current,
+    global real* points_sorted
+) {
+    const int2 coord = COORD_2D_INV_Y;
+    const int id = coord.y * get_global_size(0) + coord.x;
+    const real2 point = vload2(id, points);
+    const int label = labels[id];
+    const int shift = (label == 0) ? 0 : label_end_indexes[label - 1];
+    // NOTE: the contention of the lock here is extremely high in skewed cases!
+    const int point_location = atomic_dec(label_counts_current + label) - 1;
+    vstore2(point, shift + point_location, points_sorted);
+}
