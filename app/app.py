@@ -82,6 +82,7 @@ class CourseWork(SimpleApp):
             "bif tree (alpha)": lambda: self.draw_bif_tree(param="alpha")
         }
         self.left_mode_cmb.addItems(self.left_wgts.keys())
+        self.left_mode_cmb.setCurrentText("parameter map")
 
         self.right_wgts = {
             "phase":  self.draw_phase,
@@ -90,10 +91,14 @@ class CourseWork(SimpleApp):
             "basins (periods+attractors)": lambda: self.draw_basins(method="periods+attractors"),
         }
         self.right_mode_cmb.addItems(self.right_wgts.keys())
+        self.right_mode_cmb.setCurrentText("basins (periods+attractors)")
+
+        self.root_seq_edit.setText("0 0 1")
 
         self.setup_layout()
         self.connect_everything()
         self.draw_param_placeholder()
+        self.draw_left()
         self.draw_right()
 
     def setup_layout(self):

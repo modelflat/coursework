@@ -56,6 +56,118 @@ kernel void capture_points(
     vstore2(round_point(state.z, 4), seq_start_coord, points);
 }
 
+kernel void capture_points_init(
+    const real4 bounds,
+    const real2 c,
+    const real h,
+    const real alpha,
+    const ulong seed,
+    const int seq_size,
+    const global int* seq,
+    global int* seq_pos, // TODO are all states always the same?
+    global uint* rng_state, // TODO are all states always the same?
+    global real* points
+) {
+    newton_state state;
+    ns_init(
+        &state,
+        point_from_id_dense(bounds), c, h, alpha,
+        seed, seq_size, seq
+    );
+
+    const int2 coord = COORD_2D_INV_Y;
+    const size_t seq_start_coord = coord.y * get_global_size(0) + coord.x;
+
+    vstore2(state.rng_state, seq_start_coord, rng_state);
+    vstore2(state.z, seq_start_coord, points);
+    seq_pos[seq_start_coord] = state.seq_pos;
+}
+
+
+kernel void capture_points_next(
+    const int skip,
+    const real2 c,
+    const real h,
+    const real alpha,
+    const int seq_size,
+    const global int* seq,
+    global int* seq_pos,
+    global uint* rng_state,
+    global real* points
+) {
+    const int2 coord = COORD_2D_INV_Y;
+    const size_t seq_start_coord = coord.y * get_global_size(0) + coord.x;
+
+    newton_state state;
+    ns_init(
+        &state,
+        vload2(seq_start_coord, points),
+        c, h, alpha,
+        0, seq_size, seq
+    );
+    state.rng_state = vload2(seq_start_coord, rng_state);
+    state.seq_pos = seq_pos[seq_start_coord];
+
+    for (int i = 0; i < skip; ++i) {
+        ns_next(&state);
+    }
+
+    vstore2(state.rng_state, seq_start_coord, rng_state);
+    vstore2(state.z, seq_start_coord, points);
+    seq_pos[seq_start_coord] = state.seq_pos;
+}
+
+kernel void capture_points_finalize(
+    const int skip,
+    const int iter,
+    const real2 c,
+    const real h,
+    const real alpha,
+    const real tol,
+    const int seq_size,
+    const global int* seq,
+    global int* seq_pos,
+    global uint* rng_state,
+    global real* points,
+    global real* points_captured,
+    global int* periods
+) {
+    const int2 coord = COORD_2D_INV_Y;
+    const size_t seq_start_coord = coord.y * get_global_size(0) + coord.x;
+    const size_t points_output_coord = seq_start_coord * iter;
+
+    newton_state state;
+    ns_init(
+        &state,
+        vload2(seq_start_coord, points),
+        c, h, alpha,
+        0, seq_size, seq
+    );
+    state.rng_state = vload2(seq_start_coord, rng_state);
+    state.seq_pos = seq_pos[seq_start_coord];
+
+    for (int i = 0; i < skip; ++i) {
+        ns_next(&state);
+    }
+
+    const real2 base = state.z;
+
+    int p = iter;
+    int period_ready = 0;
+
+    for (int i = 0; i < iter; ++i) {
+        ns_next(&state);
+        vstore2(state.z, points_output_coord + i, points_captured);
+
+        if (period_ready == 0 && all(fabs(base - state.z) < tol)) {
+            p = i + 1;
+            period_ready = 1;
+        }
+    }
+
+    periods[seq_start_coord] = p;
+}
+
 // color computed basins by section of a phase surface to which attractor belongs to
 kernel void color_basins_section(
     const real4 bounds,
@@ -227,13 +339,26 @@ kernel void color_basins_attractors(
     } else if ((flag & 1) != 0) {
         if ((flag & 2) != 0) {
             // suspicious attractor
-            // TODO
             float3 hsv = vload3(label, colors);
-            color = hsv2rgb(hsv);
+            // color = hsv2rgb(hsv);
+            // y + x = k
+            // d = k / 2**.5
+            const int line_thickness = 10;
+            int d = (int)((coord.y + coord.x) * M_SQRT1_2_F);
+            if (d < 0) {
+                d = abs(d) + line_thickness;
+            }
+            if (d % (line_thickness << 1) > line_thickness) {
+                color = (float4)(0.7f, 0.7f, 0.7f, 1.0f);
+            } else {
+                color = (float4)(0.3f, 0.3f, 0.3f, 1.0f);
+            }
         } else {
             // suspicious region
             real8 d = vload8(label, data);
-            (void)d;
+            // min, max
+            real dist_to_min = length(d.s01 - d.s23);
+            real dist_to_max = length(d.s01 - d.s23);
             color = (float4)(0.0f, 0.0f, 0.0f, 1.0f);
         }
     } else {
@@ -242,7 +367,7 @@ kernel void color_basins_attractors(
         color = hsv2rgb(hsv);
     }
 
-    write_imagef(image, COORD_2D_INV_Y, color);
+    write_imagef(image, coord, color);
 }
 
 kernel void prepare_region(
@@ -252,7 +377,7 @@ kernel void prepare_region(
     const int2 coord = COORD_2D_INV_Y;
     const int id = coord.y * get_global_size(0) + coord.x;
     const int label = labels[id];
-    // NOTE: the contention of the lock here is extremely high in skewed cases!
+    // NOTE: the contention for the lock here is extremely high in skewed cases!
     atomic_inc(label_counts + label);
 }
 
@@ -268,7 +393,7 @@ kernel void sort_points_by_region(
     const real2 point = vload2(id, points);
     const int label = labels[id];
     const int shift = (label == 0) ? 0 : label_end_indexes[label - 1];
-    // NOTE: the contention of the lock here is extremely high in skewed cases!
+    // NOTE: the contention for the lock here is extremely high in skewed cases!
     const int point_location = atomic_dec(label_counts_current + label) - 1;
     vstore2(point, shift + point_location, points_sorted);
 }
