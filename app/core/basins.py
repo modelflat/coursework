@@ -19,7 +19,7 @@ class BasinsOfAttraction:
 
     def __init__(self, ctx):
         self.ctx = ctx
-        self.prg = build_program_from_file(ctx, "basins.cl", options=("-Werror",))
+        self.prg = build_program_from_file(ctx, ("basins.cl", "basins_incremental.cl"))
         self.points = None
         self.points_dev = None
         self.periods = None

@@ -12,6 +12,7 @@ typedef struct {
     real2 z, c;
     real h, alpha, eps;
     int seq_pos, seq_size;
+    // TODO accessing this pointer is slow! do something about it ?
     const global int* seq;
     uint2 rng_state;
     real2 roots[3];
@@ -49,12 +50,10 @@ inline void ns_next(newton_state* s) {
             s->z + cdiv(s->c, csq(s->z))
         )
     ) / (1 + s->eps);
-    // -(z + a*h/3 * (z + cd))
-    // / (1 - h/6)
-    const real2 c = s->c * s->eps / (1 + s->eps);
-    //               c * h / (h - 6)
 
-    int errcode = solve_cubic(a, (real2)(0, 0), c, s->roots);
+    const real2 c = s->c * s->eps / (1 + s->eps);
+
+    const int errcode = solve_cubic(a, (real2)(0, 0), c, s->roots);
 
     s->z = s->roots[errcode == 2 ? 0 : ns_next_index(s)];
 }

@@ -1,7 +1,18 @@
 .idea
+*.iml
+
 .vscode
 
+.DS_Store
+
+.coverage
+htmlcov/
+
 **/__pycache__
+**/*.pyc
 
 output
 config.json
+
+*.npy
+*.png

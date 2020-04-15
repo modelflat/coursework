@@ -1,14 +1,14 @@
 ## general parameters
 seed = 42
 
-default_shape = (1024, 1024)
+default_shape = (512, 512)
 
 # range for varying `h`
 # h_bounds = (-0.5, 0.5)
 # h_bounds = (-10, 10)
 # h_bounds = (-6, 6)
 # h_bounds = (-4.3114, -4.31)
-h_bounds = (-6, 0)
+h_bounds = (-6, -3)
 
 # range for varying `alpha`
 # alpha_bounds = (0, 2)

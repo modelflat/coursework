@@ -4,6 +4,8 @@ import sys
 import numpy
 import pyopencl as cl
 
+from PIL import Image
+
 
 os.environ["PYOPENCL_NO_CACHE"] = "1"
 os.environ["PYOPENCL_COMPILER_OUTPUT"] = "1"
@@ -99,6 +101,15 @@ def prepare_root_seq(ctx, root_seq):
     return seq.size if root_seq is not None else 0, seq_buf
 
 
+def bgra2rgba(arr):
+    arr.T[numpy.array((0, 1, 2, 3))] = arr.T[numpy.array((2, 1, 0, 3))]
+    return arr
+
+
+def make_img(arr):
+    return Image.fromarray(bgra2rgba(arr), mode="RGBA")
+
+
 class CLImg:
 
     host = property(lambda self: self.img[0])
@@ -115,6 +126,11 @@ class CLImg:
 
     def clear(self, queue):
         clear_image(queue, self.img[1], self.shape)
+
+    def save(self, path):
+
+        image = make_img(self.host.reshape((*self.shape[::-1], self.host.shape[-1])))
+        image.save(path)
 
 
 real_type = numpy.float64
