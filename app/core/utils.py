@@ -127,10 +127,11 @@ class CLImg:
     def clear(self, queue):
         clear_image(queue, self.img[1], self.shape)
 
-    def save(self, path):
+    def as_img(self):
+        return make_img(self.host.reshape((*self.shape[::-1], self.host.shape[-1])))
 
-        image = make_img(self.host.reshape((*self.shape[::-1], self.host.shape[-1])))
-        image.save(path)
+    def save(self, path):
+        self.as_img().save(path)
 
 
 real_type = numpy.float64

@@ -105,19 +105,31 @@ kernel void fast_param_map(
         seed, seq_size, seq
     );
 
+    int p = iter;
     for (int i = 0; i < skip; ++i) {
         ns_next(&state);
-    }
-
-    const real2 base = state.z;
-
-    int p = iter;
-    for (int i = 0; i < iter; ++i) {
-        ns_next(&state);
-        if (all(fabs(base - state.z) < tol)) {
-            p = i + 1;
+        if (any(isnan(state.z)) || any(fabs(state.z) > 1e6)) {
+            p = 0;
             break;
         }
+    }
+
+    if (p != 0) {
+        const real2 base = state.z;
+        p = iter;
+        for (int i = 0; i < iter; ++i) {
+            ns_next(&state);
+            if (any(isnan(state.z)) || any(fabs(state.z) > 1e6)) {
+                p = iter;
+                break;
+            }
+            if (all(fabs(base - state.z) < tol)) {
+                p = i + 1;
+                break;
+            }
+        }
+    } else {
+        p = 0;
     }
 
     periods[coord.y * get_global_size(0) + coord.x] = p;

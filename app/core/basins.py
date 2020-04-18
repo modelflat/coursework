@@ -359,3 +359,26 @@ class BasinsOfAttraction:
                                                         root_seq, tolerance_decimals, seed, verbose)
             return image
         raise ValueError("Unknown method: \"{}\"".format(method))
+
+    def color_known_attractors(self, queue, img, iter, attractors, colors, points):
+        assert len(attractors) <= len(colors)
+
+        attractors_dev = copy_dev(self.ctx, numpy.array(attractors, dtype=real_type))
+        colors_dev = copy_dev(self.ctx, numpy.array(colors, dtype=numpy.float32))
+
+        if isinstance(points, cl.Buffer):
+            points_dev = points
+        else:
+            points_dev = copy_dev(self.ctx, points)
+
+        self.prg.color_known_attractors(
+            queue, img.shape, None,
+            numpy.int32(iter),
+            numpy.int32(len(attractors)),
+            colors_dev,
+            attractors_dev,
+            points_dev,
+            img.dev
+        )
+
+        return img.read(queue)

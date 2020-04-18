@@ -274,3 +274,31 @@ kernel void sort_points_by_region(
     const int point_location = atomic_dec(label_counts_current + label) - 1;
     vstore2(point, shift + point_location, points_sorted);
 }
+
+kernel void color_known_attractors(
+    const int iter,
+    const int n_attractors,
+    const global float* colors,
+    const global real* attractors,
+    const global real* points,
+    write_only image2d_t image
+) {
+    const int2 coord = COORD_2D_INV_Y;
+    const size_t seq_start_coord = (coord.y * get_global_size(0) + coord.x) * iter;
+
+    for (int i = 0; i < iter; ++i) {
+        const real2 p = vload2(seq_start_coord + i, points);
+        if (any(isnan(p))) {
+            break;
+        }
+        for (int j = 0; j < n_attractors; ++j) {
+            const real2 attr = vload2(j, attractors);
+            if (length(p - attr) < 0.05) {
+                write_imagef(image, coord, vload4(j, colors));
+                return;
+            }
+        }
+    }
+
+    write_imagef(image, coord, (float4)(0.0f, 0.0f, 0.0f, 1.0f));
+}

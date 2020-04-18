@@ -1,7 +1,7 @@
 ## general parameters
 seed = 42
 
-default_shape = (512, 512)
+default_shape = (768, 768)
 
 # range for varying `h`
 # h_bounds = (-0.5, 0.5)
@@ -9,12 +9,13 @@ default_shape = (512, 512)
 # h_bounds = (-6, 6)
 # h_bounds = (-4.3114, -4.31)
 h_bounds = (-6, -3)
+# h_bounds = (0, 6)
 
 # range for varying `alpha`
 # alpha_bounds = (0, 2)
 # alpha_bounds = (0.0, 1.000)
 # alpha_bounds = (0.6044, 0.6045)
-alpha_bounds = (0.5, 1.0)
+alpha_bounds = (0.5, 1)
 
 # `c` constant
 C = complex(-0.5, 0.5)
@@ -36,7 +37,7 @@ param_map_iter = 1 << 6
 param_map_tolerance = 1e-4
 
 # starting point for param map
-param_map_z0 = complex(-0.3, 0.1)
+param_map_z0 = complex(0.5, 0.0)
 
 # enable phase space selection
 param_map_select_z0_from_phase = True

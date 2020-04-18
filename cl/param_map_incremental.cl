@@ -22,8 +22,10 @@ kernel void capture_points_init(
     const int2 coord = COORD_2D_INV_Y;
     const size_t seq_start_coord = coord.y * get_global_size(0) + coord.x;
 
-    vstore2(state.rng_state, seq_start_coord, rng_state);
     vstore2(state.z, seq_start_coord, points);
+    if (coord.x == 0 && coord.y == 0) {
+        vstore2(state.rng_state, 0, rng_state);
+    }
     seq_pos[seq_start_coord] = state.seq_pos;
 }
 
@@ -45,14 +47,16 @@ kernel void capture_points_next(
     newton_state state;
     ns_init(&state, vload2(seq_start_coord, points), c, param.x, param.y, 0, seq_size, seq);
 
-    state.rng_state = vload2(seq_start_coord, rng_state);
+    state.rng_state = vload2(0, rng_state);
     state.seq_pos = seq_pos[seq_start_coord];
 
     for (int i = 0; i < skip; ++i) {
         ns_next(&state);
     }
 
-    vstore2(state.rng_state, seq_start_coord, rng_state);
+    if (coord.x == 0 && coord.y == 0) {
+        vstore2(state.rng_state, 0, rng_state);
+    }
     vstore2(state.z, seq_start_coord, points);
     seq_pos[seq_start_coord] = state.seq_pos;
 }
@@ -63,6 +67,7 @@ kernel void capture_points_finalize(
     const real tol,
     const int skip,
     const int iter,
+    const int capture_points,
     const int seq_size,
     const global int* seq,
     global int* seq_pos,
@@ -78,7 +83,7 @@ kernel void capture_points_finalize(
 
     newton_state state;
     ns_init(&state, vload2(seq_start_coord, points), c, param.x, param.y, 0, seq_size, seq);
-    state.rng_state = vload2(seq_start_coord, rng_state);
+    state.rng_state = vload2(0, rng_state);
     state.seq_pos = seq_pos[seq_start_coord];
 
     for (int i = 0; i < skip; ++i) {
@@ -90,14 +95,42 @@ kernel void capture_points_finalize(
     int p = iter;
     int period_ready = 0;
 
-    for (int i = 0; i < iter; ++i) {
+    for (int i = 0; i < skip; ++i) {
         ns_next(&state);
-        vstore2(state.z, points_output_coord + i, points_captured);
-
-        if (period_ready == 0 && all(fabs(base - state.z) < tol)) {
-            p = i + 1;
-            period_ready = 1;
+        if (any(isnan(state.z)) || any(fabs(state.z) > 1e6)) {
+            p = 0;
+            break;
         }
+    }
+
+    if (p != 0) {
+        const real2 base = state.z;
+        p = iter;
+        for (int i = 0; i < iter; ++i) {
+            ns_next(&state);
+
+            if (capture_points) {
+                vstore2(state.z, points_output_coord + i, points_captured);
+            }
+
+            if (!period_ready && (any(isnan(state.z)) || any(fabs(state.z) > 1e6))) {
+                p = iter;
+                period_ready = 1;
+                if (!capture_points) {
+                    break;
+                }
+            }
+
+            if (!period_ready && (all(fabs(base - state.z) < tol))) {
+                p = i + 1;
+                period_ready = 1;
+                if (!capture_points) {
+                    break;
+                }
+            }
+        }
+    } else {
+        p = 0;
     }
 
     periods[seq_start_coord] = p;

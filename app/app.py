@@ -55,6 +55,11 @@ class CourseWork(SimpleApp):
         self.alpha_slider, self.alpha_slider_wgt = \
             createSlider("real", cfg.alpha_bounds, withLabel="alpha = {:2.3f}", labelPosition="top", withValue=0.0)
 
+        self.skip_slider, self.skip_slider_wgt = \
+            createSlider("int", (1, 256), withLabel="skip = {}", labelPosition="top", withValue=96)
+        self.iter_slider, self.iter_slider_wgt = \
+            createSlider("int", (1, 128), withLabel="iter = {}", labelPosition="top", withValue=48)
+
         self.left_recompute_btn = QPushButton("Recompute")
         self.left_recompute_btn.clicked.connect(self.draw_left)
 
@@ -117,11 +122,16 @@ class CourseWork(SimpleApp):
             self.right_wgt,
             stack(self.clear_cb, kind="h"),
             self.alpha_slider_wgt,
-            self.h_slider_wgt
+            self.h_slider_wgt,
+            self.skip_slider_wgt,
+            self.iter_slider_wgt,
         )
         self.setLayout(stack(left, right, kind="h", cm=(4, 4, 4, 4), sp=4))
 
     def connect_everything(self):
+
+        self.iter_slider.valueChanged.connect(self.draw_left)
+        self.skip_slider.valueChanged.connect(self.draw_left)
 
         def set_sliders_and_draw(val):
             self.draw_right()
@@ -198,7 +208,7 @@ class CourseWork(SimpleApp):
             z0 = cfg.param_map_z0
 
         self.desk.update_param_map_params(
-            z0=z0
+            z0=z0, iter=self.iter_slider.value(), skip=self.skip_slider.value()
         )
 
         image, periods = self.desk.draw_param_map(self.left_image)
