@@ -42,7 +42,7 @@ def save_with_axes(filename, image, attractors_to_colors, bounds, dpi=64, legend
     pyplot.close(fig)
 
 
-def extract_attractors(filename):
+def extract_attractors(filename, show=False):
     res_filename = filename + ".temp.res.npy"
     counts_filename = filename + ".temp.counts.npy"
 
@@ -65,8 +65,8 @@ def extract_attractors(filename):
         _, counts = numpy.unique(res, axis=0, return_counts=True)
         numpy.save(counts_filename, counts)
 
-    # thr = 1600
-    thr = 6400 * 1.5
+    thr = 1600
+    # thr = 6400 * 1.5
     cond = (numpy.linalg.norm(res, axis=1) > 0.05) & (counts > thr)
     res = res[cond]
     counts = counts[cond]
@@ -97,9 +97,10 @@ def extract_attractors(filename):
         ax.plot(*res[idxs].T, col + '.')
         ax.add_artist(pyplot.Circle(center, 0.05, color='black', fill=False))
 
-    # ax.grid()
-    ax.set_title(f"{thr}")
-    pyplot.show()
+    if show:
+        ax.grid()
+        ax.set_title(f"{thr}")
+        pyplot.show()
 
     return attractors
 
@@ -161,8 +162,8 @@ def main(ctx, queue):
     # points_name = "test-map-20200418134726.npy"
     # points_name = "test-map-20200418145033.npy"
     # points_name = "test-map-20200419192630.npy"
-    # points_name = "test-map-20200419192630.npy"
-    points_name = "test-phase-20200419203953.npy"
+    points_name = "test-map-20200419192630.npy"
+    # points_name = "test-phase-20200419203953.npy"
     print(points_name)
     attractors = extract_attractors(points_name)
 

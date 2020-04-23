@@ -94,6 +94,7 @@ class CourseWork(SimpleApp):
             "basins (sections)": lambda: self.draw_basins(method="sections"),
             "basins (periods)": lambda: self.draw_basins(method="periods"),
             "basins (periods+attractors)": lambda: self.draw_basins(method="periods+attractors"),
+            "precomputed attractors": lambda: self.draw_basins(method="precomputed"),
         }
         self.right_mode_cmb.addItems(self.right_wgts.keys())
         self.right_mode_cmb.setCurrentText("basins (periods+attractors)")

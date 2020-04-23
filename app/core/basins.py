@@ -60,8 +60,16 @@ class BasinsOfAttraction:
             self.periods_dev
         )
 
+    def compute_and_color_known(self, queue, img, skip, iter, h, alpha, c, bounds, attractors, colors,
+                                root_seq=None, tolerance_decimals=3, seed=None):
+        points, _ = self.deep_capture(
+            queue, img.shape, skip, skip, iter, h, alpha, c, bounds, root_seq, tolerance_decimals, seed,
+            show_progress=False
+        )
+        return self.color_known_attractors(queue, img, iter, attractors, colors, points)
+
     def deep_capture(self, queue, shape, skip, skip_batch_size, iter, h, alpha, c, bounds,
-                     root_seq=None, tolerance_decimals=3, seed=None):
+                     root_seq=None, tolerance_decimals=3, seed=None, show_progress=True):
         h_dev = real_type(h)
         alpha_dev = real_type(alpha)
         c_dev = numpy.array((c.real, c.imag), dtype=real_type)
@@ -88,7 +96,10 @@ class BasinsOfAttraction:
         )
 
         skip_batch_dev = numpy.int32(skip_batch_size)
-        for _ in tqdm(range(skip // skip_batch_size)):
+        it = range(skip // skip_batch_size)
+        if show_progress:
+            it = tqdm(it)
+        for _ in it:
             self.prg.capture_points_next(
                 queue, shape, None,
                 skip_batch_dev,

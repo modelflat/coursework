@@ -9,7 +9,7 @@ from core.param_map import ParameterMap
 from core.phase_plot import PhasePlot
 
 from multiprocessing import Lock
-
+import numpy
 
 class LabDesk(QWidget):
 
@@ -83,6 +83,11 @@ class LabDesk(QWidget):
 
         self.compute_lock = Lock()
 
+        from research.attractor_miner_param_map import extract_attractors
+        points_name = "../research/test-map-20200419192630.npy"
+        self.precomputed_attractors = extract_attractors(points_name, show=False)
+        self.precomputed_points = numpy.load(points_name)
+
     def update_root_sequence(self, s):
         try:
             l = list(map(int, s.split()))
@@ -106,7 +111,29 @@ class LabDesk(QWidget):
 
     def draw_basins(self, img):
         with self.compute_lock:
-            return self.basins.compute(self.queue, img, root_seq=self.root_seq, **self.basins_params)
+            colors = [
+                (1.0, 0.0, 0.0, 1.0),
+                (0.0, 1.0, 0.0, 1.0),
+                (0.0, 0.0, 1.0, 1.0),
+                (1.0, 0.0, 1.0, 1.0),
+                (0.0, 1.0, 1.0, 1.0),
+                (1.0, 0.0, 1.0, 1.0),
+                (1.0, 1.0, 0.0, 1.0),
+            ] * 3
+            if self.basins_params["method"] == "precomputed":
+                skip = self.basins_params['skip']
+                iter = self.basins_params['iter']
+                points, _ = self.basins.deep_capture(
+                    self.queue, img.shape, skip, skip, iter,
+                    self.basins_params['h'], self.basins_params['alpha'], self.basins_params['c'],
+                    self.basins_params['bounds'], self.root_seq, tolerance_decimals=3, seed=42,
+                    show_progress=False,
+                )
+                return self.basins.color_known_attractors(
+                    self.queue, img, points.shape[2], self.precomputed_attractors, colors, points
+                )
+            else:
+                return self.basins.compute(self.queue, img, root_seq=self.root_seq, **self.basins_params)
 
     def update_param_map_params(self, **kwargs):
         self.param_map_params = { **self.param_map_params, **kwargs }
