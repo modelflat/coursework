@@ -62,11 +62,34 @@ class BasinsOfAttraction:
 
     def compute_and_color_known(self, queue, img, skip, iter, h, alpha, c, bounds, attractors, colors,
                                 root_seq=None, tolerance_decimals=3, seed=None):
-        points, _ = self.deep_capture(
-            queue, img.shape, skip, skip, iter, h, alpha, c, bounds, root_seq, tolerance_decimals, seed,
-            show_progress=False
+
+        points_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=8 * 2 * iter * numpy.prod(img.shape))
+        periods_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=4 * numpy.prod(img.shape))
+
+        seq_size, seq = prepare_root_seq(self.ctx, root_seq)
+
+        self.prg.capture_points_iter(
+            queue, img.shape, None,
+
+            numpy.int32(skip),
+            numpy.int32(iter),
+
+            numpy.array(bounds, dtype=real_type),
+            numpy.array((c.real, c.imag), dtype=real_type),
+
+            real_type(h),
+            real_type(alpha),
+            real_type(1 / 10 ** tolerance_decimals),
+
+            numpy.uint64(seed if seed is not None else random_seed()),
+            numpy.int32(seq_size),
+            seq,
+
+            points_dev,
+            periods_dev
         )
-        return self.color_known_attractors(queue, img, iter, attractors, colors, points)
+
+        return self.color_known_attractors(queue, img, iter, attractors, colors, points_dev, periods_dev)
 
     def deep_capture(self, queue, shape, skip, skip_batch_size, iter, h, alpha, c, bounds,
                      root_seq=None, tolerance_decimals=3, seed=None, show_progress=True):
@@ -371,7 +394,7 @@ class BasinsOfAttraction:
             return image
         raise ValueError("Unknown method: \"{}\"".format(method))
 
-    def color_known_attractors(self, queue, img, iter, attractors, colors, points):
+    def color_known_attractors(self, queue, img, iter, attractors, colors, points, periods):
         assert len(attractors) <= len(colors)
 
         attractors_dev = copy_dev(self.ctx, numpy.array(attractors, dtype=real_type))
@@ -382,6 +405,11 @@ class BasinsOfAttraction:
         else:
             points_dev = copy_dev(self.ctx, points)
 
+        if isinstance(periods, cl.Buffer):
+            periods_dev = periods
+        else:
+            periods_dev = copy_dev(self.ctx, periods)
+
         self.prg.color_known_attractors(
             queue, img.shape, None,
             numpy.int32(iter),
@@ -389,6 +417,7 @@ class BasinsOfAttraction:
             colors_dev,
             attractors_dev,
             points_dev,
+            periods_dev,
             img.dev
         )
 

@@ -11,6 +11,8 @@ htmlcov/
 **/__pycache__
 **/*.pyc
 
+research/**/*.json
+
 output
 config.json
 

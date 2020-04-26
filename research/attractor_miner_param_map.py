@@ -6,13 +6,17 @@ import numpy
 from matplotlib import pyplot
 from sklearn.cluster import MeanShift, KMeans, estimate_bandwidth
 
+import pyopencl as cl
+
 from config import C
 from core.param_map import ParameterMap
 from core.basins import BasinsOfAttraction
 from core.utils import create_context_and_queue, CLImg
 
+from PIL import Image
 
-def save_with_axes(filename, image, attractors_to_colors, bounds, dpi=64, legend_bbox_anchor=None):
+
+def save_with_axes(filename, image, attractors, colors, bounds, dpi=64, legend_bbox_anchor=None):
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(figsize=(image.width / dpi, image.height / dpi), dpi=dpi)
     ax.imshow(image, origin="upper", extent=bounds, aspect="auto")
@@ -23,17 +27,17 @@ def save_with_axes(filename, image, attractors_to_colors, bounds, dpi=64, legend
     ax.set_xticks(numpy.linspace(*bounds[0:2], 10))
     ax.set_yticks(numpy.linspace(*bounds[2:4], 10))
 
-    for attr, color in attractors_to_colors.items():
+    for attr, color in zip(attractors, colors):
         ax.scatter(bounds[0] - 1, bounds[2] - 1,
                    marker="o",
                    color=tuple(numpy.clip(color, 0.0, 1.0)),
                    label=f"{attr}")
     if legend_bbox_anchor is not None:
         ax.legend(bbox_to_anchor=legend_bbox_anchor)
-        fig.tight_layout()
     else:
         ax.legend(loc="upper right")
 
+    fig.tight_layout()
     ax.set_xlim(bounds[0], bounds[1])
     ax.set_ylim(bounds[2], bounds[3])
 
@@ -105,7 +109,101 @@ def extract_attractors(filename, show=False):
     return attractors
 
 
-def main(ctx, queue):
+def periods_and_attractors_at_point(ctx, queue, param, basins, h, alpha, attractors, colors, root_seq,
+                                    output_name, output_dir):
+    image = CLImg(ctx, (1024, 1024))
+
+    bounds = (-2, 2, -2, 2)
+
+    output_name = f"{output_dir}{h:.2f},{alpha:.2f}_{output_name}"
+
+    basins.compute_and_color_known(
+        queue, image, skip=1 << 12, iter=1 << 6,
+        h=h, alpha=alpha, c=C, bounds=bounds, attractors=attractors, colors=colors,
+        root_seq=root_seq, tolerance_decimals=3, seed=42,
+    )
+
+    save_with_axes(f"{output_name}_attr.png", image.as_img(), attractors, colors, bounds)
+
+    basins.compute_periods(
+        queue, image, skip=1 << 10, iter=1 << 6,
+        h=h, alpha=alpha, c=C, bounds=bounds, root_seq=root_seq, tolerance_decimals=3, seed=42,
+    )
+
+    cl.enqueue_copy(queue, basins.periods, basins.periods_dev)
+    periods, period_counts = numpy.unique(basins.periods, return_counts=True)
+
+    periods = periods[numpy.argsort(period_counts)[::-1]]
+
+    period_colors = param.compute_colors_for_periods(queue, periods, 1 << 6)
+
+    save_with_axes(f"{output_name}_periods.png", image.as_img(), periods[:10], period_colors[:10], bounds)
+
+
+def main_attractors(ctx, queue):
+    basins = BasinsOfAttraction(ctx)
+    param = ParameterMap(ctx)
+
+    attractors = extract_attractors("test-map-20200419192630.npy")
+
+    colors = [
+        (1.0, 0.0, 0.0, 1.0),
+        (0.0, 1.0, 0.0, 1.0),
+        (0.0, 0.0, 1.0, 1.0),
+        (1.0, 0.0, 1.0, 1.0),
+        (0.0, 1.0, 1.0, 1.0),
+        (1.0, 0.0, 1.0, 1.0),
+        (1.0, 1.0, 0.0, 1.0),
+    ]
+
+    root_seq = (0, 0, 1)
+
+    periods_and_attractors_at_point(ctx, queue, param, basins, -4.30, 0.70, attractors, colors, root_seq, "attr", "attr_res/")
+    # periods_and_attractors_at_point(ctx, queue, param, basins, -3.54, 0.84, attractors, colors, root_seq, "attr", "attr_res/")
+    # periods_and_attractors_at_point(ctx, queue, param, basins, -3.72, 0.63, attractors, colors, root_seq, "attr", "attr_res/")
+    # periods_and_attractors_at_point(ctx, queue, param, basins, -6.00, 0.57, attractors, colors, root_seq, "attr", "attr_res/")
+    # periods_and_attractors_at_point(ctx, queue, param, basins, -5.94, 0.70, attractors, colors, root_seq, "attr", "attr_res/")
+
+
+def draw_points_on_map(map_file, points_file, bounds, output):
+    import json
+    with open(points_file) as f:
+        points = json.load(f)
+
+    from PIL import Image
+
+    image = Image.open(map_file)
+    dpi = 64
+    import matplotlib.pyplot as plt
+    plt.rcParams.update({'font.size': 140})
+
+    fig, ax = plt.subplots(figsize=(image.width / dpi, image.height / dpi), dpi=dpi)
+    ax.imshow(image, origin="upper", extent=bounds, aspect="auto")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.set_xticks(numpy.linspace(*bounds[0:2], 10))
+    ax.set_yticks(numpy.linspace(*bounds[2:4], 10))
+
+    for i, point in enumerate(points):
+        ax.scatter(*point,
+                   marker="v",
+                   s=1000,
+                   color=(1.0, 1.0, 1.0),
+                   label=f"{i}")
+        ax.annotate(str(i), point)
+
+    fig.tight_layout()
+    ax.set_xlim(bounds[0], bounds[1])
+    ax.set_ylim(bounds[2], bounds[3])
+
+    fig.tight_layout()
+    fig.savefig(output)
+    pyplot.close(fig)
+
+
+def main_old(ctx, queue):
     param = ParameterMap(ctx)
     bas = BasinsOfAttraction(ctx)
 
@@ -172,14 +270,14 @@ def main(ctx, queue):
     points = numpy.load(points_name)
 
     colors = [
-        (1.0, 0.0, 0.0, 1.0),
-        (0.0, 1.0, 0.0, 1.0),
-        (0.0, 0.0, 1.0, 1.0),
-        (1.0, 0.0, 1.0, 1.0),
-        (0.0, 1.0, 1.0, 1.0),
-        (1.0, 0.0, 1.0, 1.0),
-        (1.0, 1.0, 0.0, 1.0),
-    ] * 3
+                 (1.0, 0.0, 0.0, 1.0),
+                 (0.0, 1.0, 0.0, 1.0),
+                 (0.0, 0.0, 1.0, 1.0),
+                 (1.0, 0.0, 1.0, 1.0),
+                 (0.0, 1.0, 1.0, 1.0),
+                 (1.0, 0.0, 1.0, 1.0),
+                 (1.0, 1.0, 0.0, 1.0),
+             ] * 3
 
     b.color_known_attractors(queue, image, points.shape[2], attractors, colors, points)
 
@@ -192,5 +290,12 @@ def main(ctx, queue):
     image.save("feelsdankman.png")
 
 
+def main(ctx, queue):
+    main_attractors(ctx, queue)
+
 if __name__ == '__main__':
-    main(*create_context_and_queue())
+    # main(*create_context_and_queue())
+
+    Image.MAX_IMAGE_PIXELS = 192000000
+    draw_points_on_map("final_001_inc_20200422-013434.png", "attr_res/points.json", (-6, 0, 0.5, 1.0),
+                       "attr_res/map.png")

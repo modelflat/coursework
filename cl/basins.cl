@@ -51,6 +51,58 @@ kernel void capture_points(
     vstore2(round_point(state.z, 4), seq_start_coord, points);
 }
 
+// capture points and periods after `skip` iterations
+kernel void capture_points_iter(
+    const int skip,
+    const int iter,
+    const real4 bounds,
+    const real2 c,
+    const real h,
+    const real alpha,
+    const real tol,
+    const ulong seed,
+    const int seq_size,
+    const global int* seq,
+    global real* points,
+    global int* periods
+) {
+    newton_state state;
+    ns_init(
+        &state,
+        point_from_id_dense(bounds), c, h, alpha,
+        seed, seq_size, seq
+    );
+
+    const int2 coord = COORD_2D_INV_Y;
+
+    size_t seq_start_coord = coord.y * get_global_size(0) + coord.x;
+
+    periods += seq_start_coord;
+
+    seq_start_coord *= iter;
+
+    for (int i = 0; i < skip; ++i) {
+        ns_next(&state);
+    }
+
+    const real2 base = state.z;
+
+    int p = iter;
+
+    for (int i = 0; i < iter; ++i) {
+        ns_next(&state);
+
+        vstore2(state.z, seq_start_coord + i, points);
+
+        if (all(fabs(base - state.z) < tol)) {
+            p = i + 1;
+        }
+    }
+
+    *periods = p;
+}
+
+
 // color computed basins by section of a phase surface to which attractor belongs to
 kernel void color_basins_section(
     const real4 bounds,
@@ -281,12 +333,15 @@ kernel void color_known_attractors(
     const global float* colors,
     const global real* attractors,
     const global real* points,
+    const global int* periods,
     write_only image2d_t image
 ) {
     const int2 coord = COORD_2D_INV_Y;
     const size_t seq_start_coord = (coord.y * get_global_size(0) + coord.x) * iter;
 
-    for (int i = 0; i < iter; ++i) {
+    const int period = periods[(coord.y * get_global_size(0) + coord.x)];
+
+    for (int i = 0; i < period; ++i) {
         const real2 p = vload2(seq_start_coord + i, points);
         if (any(isnan(p))) {
             break;

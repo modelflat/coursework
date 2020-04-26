@@ -60,6 +60,9 @@ class CourseWork(SimpleApp):
         self.iter_slider, self.iter_slider_wgt = \
             createSlider("int", (1, 128), withLabel="iter = {}", labelPosition="top", withValue=48)
 
+        self.draw_periods_and_attractors_btn = QPushButton("Draw attractors + basins")
+        self.draw_periods_and_attractors_btn.clicked.connect(self.draw_periods_and_attractors)
+
         self.left_recompute_btn = QPushButton("Recompute")
         self.left_recompute_btn.clicked.connect(self.draw_left)
 
@@ -126,6 +129,7 @@ class CourseWork(SimpleApp):
             self.h_slider_wgt,
             self.skip_slider_wgt,
             self.iter_slider_wgt,
+            self.draw_periods_and_attractors_btn
         )
         self.setLayout(stack(left, right, kind="h", cm=(4, 4, 4, 4), sp=4))
 
@@ -298,6 +302,16 @@ class CourseWork(SimpleApp):
     def draw_left(self):
         what = self.left_mode_cmb.currentText()
         self.left_wgts[what]()
+
+    def draw_periods_and_attractors(self):
+        h, alpha = self.left_wgt.value()
+        self.parse_root_sequence()
+
+        self.desk.update_basins_params(
+            h=h, alpha=alpha, method=None
+        )
+
+        self.desk.periods_and_sttractors()
 
 
 if __name__ == '__main__':

@@ -121,19 +121,47 @@ class LabDesk(QWidget):
                 (1.0, 1.0, 0.0, 1.0),
             ] * 3
             if self.basins_params["method"] == "precomputed":
-                skip = self.basins_params['skip']
-                iter = self.basins_params['iter']
-                points, _ = self.basins.deep_capture(
-                    self.queue, img.shape, skip, skip, iter,
+                return self.basins.compute_and_color_known(
+                    self.queue, img, self.basins_params['skip'], self.basins_params['iter'],
                     self.basins_params['h'], self.basins_params['alpha'], self.basins_params['c'],
-                    self.basins_params['bounds'], self.root_seq, tolerance_decimals=3, seed=42,
-                    show_progress=False,
-                )
-                return self.basins.color_known_attractors(
-                    self.queue, img, points.shape[2], self.precomputed_attractors, colors, points
+                    self.basins_params['bounds'], self.precomputed_attractors, colors,
+                    self.root_seq, tolerance_decimals=3, seed=42,
                 )
             else:
                 return self.basins.compute(self.queue, img, root_seq=self.root_seq, **self.basins_params)
+
+    def periods_and_sttractors(self):
+        from research.attractor_miner_param_map import periods_and_attractors_at_point
+        import json
+        import os
+        points_file = "../research/attr_res/points.json"
+
+        if os.path.exists(points_file):
+            with open(points_file, "r") as f:
+                points = json.load(f)
+        else:
+            points = []
+
+        periods_and_attractors_at_point(
+            self.ctx, self.queue, self.param_map, self.basins,
+            self.basins_params['h'], self.basins_params['alpha'],
+            attractors=self.precomputed_attractors, colors=[
+                (1.0, 0.0, 0.0, 1.0),
+                (0.0, 1.0, 0.0, 1.0),
+                (0.0, 0.0, 1.0, 1.0),
+                (1.0, 0.0, 1.0, 1.0),
+                (0.0, 1.0, 1.0, 1.0),
+                (1.0, 0.0, 1.0, 1.0),
+                (1.0, 1.0, 0.0, 1.0),
+            ] * 3,
+            root_seq=self.root_seq,
+            output_name="attr", output_dir=f"../research/attr_res/{len(points)}"
+        )
+
+        points.append([self.basins_params['h'], self.basins_params['alpha']])
+
+        with open(points_file, "w") as f:
+            json.dump(points, f)
 
     def update_param_map_params(self, **kwargs):
         self.param_map_params = { **self.param_map_params, **kwargs }

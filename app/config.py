@@ -28,7 +28,7 @@ param_map_image_shape = default_shape
 
 # skip iters on param map
 # param_map_skip = 1 << 4
-param_map_skip = 1 << 7
+param_map_skip = 1 << 8
 
 # iters on param map
 param_map_iter = 1 << 6
