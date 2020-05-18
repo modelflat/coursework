@@ -34,12 +34,13 @@ kernel void capture_points(
     }
 
     const real2 base = state.z;
-
     int p = iter;
-
     for (int i = 0; i < iter; ++i) {
         ns_next(&state);
-
+        if (any(isnan(state.z)) || any(fabs(state.z) > 1e6)) {
+            p = 0;
+            break;
+        }
         if (all(fabs(base - state.z) < tol)) {
             p = i + 1;
             break;
@@ -86,16 +87,22 @@ kernel void capture_points_iter(
     }
 
     const real2 base = state.z;
-
     int p = iter;
+    int period_ready = 0;
 
     for (int i = 0; i < iter; ++i) {
         ns_next(&state);
 
         vstore2(state.z, seq_start_coord + i, points);
 
-        if (p == iter && all(fabs(base - state.z) < tol)) {
+        if (!period_ready && (any(isnan(state.z)) || any(fabs(state.z) > 1e6))) {
+            p = 0;
+            period_ready = 1;
+        }
+
+        if (!period_ready && (all(fabs(base - state.z) < tol))) {
             p = i + 1;
+            period_ready = 1;
         }
     }
 
