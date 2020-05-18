@@ -3,7 +3,7 @@ from matplotlib import pyplot
 from core.basins import BasinsOfAttraction
 from core.utils import create_context_and_queue
 
-from config import C
+from config import Config
 
 ctx, queue = create_context_and_queue()
 basins = BasinsOfAttraction(ctx)
@@ -19,7 +19,7 @@ points_file = "attr_res/points.json"
 
 def find_in_point(root_seq, h, alpha):
     result = basins.find_attractors(
-        queue, shape, skip, iter, h, alpha, C, bounds, root_seq, tolerance_decimals=3, seed=42,
+        queue, shape, skip, iter, h, alpha, Config.C, bounds, root_seq, tolerance_decimals=3, seed=42,
     )
     print([(y, len(x[0])) for y, x in result.items()])
     thr = 128

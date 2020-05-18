@@ -4,7 +4,7 @@ import numpy
 
 from tqdm import tqdm
 
-from app.config import C
+from app.config import Config
 from app.core.param_map import ParameterMap
 from app.core.utils import create_context_and_queue, CLImg
 
@@ -59,7 +59,7 @@ def compute_high_res_param_map(filename, bounds, root_sequence, parts=4):
     for part in range(parts):
         periods_part, _ = solver.compute_incremental(
             queue, image,
-            skip=SKIP, skip_batch_size=SKIP_BATCH, iter=ITER, z0=Z0, c=C,
+            skip=SKIP, skip_batch_size=SKIP_BATCH, iter=ITER, z0=Z0, c=Config.C,
             bounds=(
                 bounds[0],
                 bounds[1],

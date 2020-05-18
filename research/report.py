@@ -3,17 +3,17 @@ from datetime import datetime
 
 import numpy
 from PIL import Image
-
-from config import C
-from core.phase_plot import PhasePlot
-from core.bif_tree import BifTree
-from core.param_map import ParameterMap
-from core.bounding_box import BoundingBox
-from core.fast_box_counting import FastBoxCounting
-from core.utils import create_context_and_queue, CLImg
-
-from core.basins import BasinsOfAttraction
 from tqdm import tqdm
+
+from app.config import Config
+from app.core.phase_plot import PhasePlot
+from app.core.bif_tree import BifTree
+from app.core.param_map import ParameterMap
+from app.core.bounding_box import BoundingBox
+from app.core.fast_box_counting import FastBoxCounting
+from app.core.utils import create_context_and_queue, CLImg
+from app.core.basins import BasinsOfAttraction
+
 
 OUTPUT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "output"))
 
@@ -79,7 +79,7 @@ def param_map(ctx, queue, filename, full_size=(640, 480), tile_size=(160, 160), 
         skip=1 << 8,
         iter=1 << 8,
         z0=complex(0.001, 0.001),
-        c=C,
+        c=Config.C,
         tol=1e-6,
         seed=42,
         method="fast",
@@ -138,7 +138,7 @@ def bif_tree(ctx, queue, filename, **params):
         skip=1 << 16,
         iter=1 << 14,
         z0=complex(0.001, 0.001),
-        c=C,
+        c=Config.C,
         var_id=0,
         fixed_id=params["fixed_id"],
         fixed_value=params["h"] if params["fixed_id"] == 0 else params["alpha"],
@@ -175,7 +175,7 @@ def basins(ctx, queue, filename, **params):
         skip=1 << 10,
         h=params["h"],
         alpha=params["alpha"],
-        c=C,
+        c=Config.C,
         bounds=params.get("bounds", (-2, 2, -2, 2)),
         root_seq=params["root_seq"],
         method="dev",
@@ -263,13 +263,13 @@ def plot_D(ctx, queue):
     tm = []
     for h in tqdm(hs):
         t = perf_counter()
-        phase.compute(queue, img, skip=skip, iter=iter, h=h, alpha=alpha, c=C, bounds=bounds, grid_size=4, seed=42)
+        phase.compute(queue, img, skip=skip, iter=iter, h=h, alpha=alpha, c=Config.C, bounds=bounds, grid_size=4, seed=42)
         tm.append(perf_counter() - t)
 
         box, new_bounds = bbox.compute(queue, img, bounds=bounds)
         # print("h = {:.3f}:".format(h), bounds, "->", new_bounds)
 
-        phase.compute(queue, img, skip=skip, iter=iter, h=h, alpha=alpha, c=C, bounds=new_bounds, grid_size=4, seed=42)
+        phase.compute(queue, img, skip=skip, iter=iter, h=h, alpha=alpha, c=Config.C, bounds=new_bounds, grid_size=4, seed=42)
         d = fbc.compute(queue, img.dev)
         ds.append(d)
 

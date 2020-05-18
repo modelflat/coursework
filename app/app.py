@@ -4,13 +4,14 @@ import numpy
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLabel, QLineEdit, QCheckBox, QPushButton, QComboBox
 
-import config as cfg
 from core.desk import LabDesk
 from core.ui import SimpleApp, createSlider, stack, ParameterizedImageWidget
 from core.utils import blank_image, CLImg
 
+from config import Config
 
-numpy.random.seed(cfg.seed)
+
+numpy.random.seed(Config.seed)
 
 
 def make_phase_wgt(space_shape, image_shape):
@@ -38,22 +39,22 @@ class CourseWork(SimpleApp):
     def __init__(self):
         super().__init__("Coursework")
 
-        self.desk = LabDesk(self.ctx, self.queue, cfg)
+        self.desk = LabDesk(self.ctx, self.queue, Config)
 
-        self.left_image = CLImg(self.ctx, cfg.default_shape)
-        self.right_image = CLImg(self.ctx, cfg.default_shape)
+        self.left_image = CLImg(self.ctx, Config.default_shape)
+        self.right_image = CLImg(self.ctx, Config.default_shape)
 
         # left widget is for parameter-related stuff
-        self.left_wgt = make_param_wgt(cfg.h_bounds, cfg.alpha_bounds, cfg.param_map_image_shape)
+        self.left_wgt = make_param_wgt(Config.h_bounds, Config.alpha_bounds, Config.param_map_image_shape)
 
         # right widget is for phase-related stuff
-        self.right_wgt = make_phase_wgt(cfg.phase_shape, cfg.phase_image_shape)
+        self.right_wgt = make_phase_wgt(Config.phase_shape, Config.phase_image_shape)
 
         self.h_slider, self.h_slider_wgt = \
-            createSlider("real", cfg.h_bounds, withLabel="h = {:2.3f}", labelPosition="top", withValue=0.5)
+            createSlider("real", Config.h_bounds, withLabel="h = {:2.3f}", labelPosition="top", withValue=0.5)
 
         self.alpha_slider, self.alpha_slider_wgt = \
-            createSlider("real", cfg.alpha_bounds, withLabel="alpha = {:2.3f}", labelPosition="top", withValue=0.0)
+            createSlider("real", Config.alpha_bounds, withLabel="alpha = {:2.3f}", labelPosition="top", withValue=0.0)
 
         self.skip_slider, self.skip_slider_wgt = \
             createSlider("int", (1, 2048), withLabel="skip = {}", labelPosition="top", withValue=96)
@@ -157,7 +158,7 @@ class CourseWork(SimpleApp):
                 self.draw_left()
         self.alpha_slider.valueChanged.connect(set_alpha_value)
 
-        if cfg.param_map_draw_on_select and cfg.param_map_select_z0_from_phase:
+        if Config.param_map_draw_on_select and Config.param_map_select_z0_from_phase:
             def select_z0(*_):
                 self.draw_left()
             self.right_wgt.valueChanged.connect(select_z0)
@@ -184,7 +185,7 @@ class CourseWork(SimpleApp):
         self.desk.update_root_sequence(self.root_seq_edit.text())
 
     def draw_param_placeholder(self):
-        self.left_wgt.setImage(blank_image(cfg.default_shape))
+        self.left_wgt.setImage(blank_image(Config.default_shape))
 
     def draw_basins(self, *_, method=None):
         h, alpha = self.left_wgt.value()
@@ -203,11 +204,11 @@ class CourseWork(SimpleApp):
         # print("Start computing parameter map")
         t = time.perf_counter()
 
-        if cfg.param_map_select_z0_from_phase:
+        if Config.param_map_select_z0_from_phase:
             wgt = self.right_wgt
             z0 = complex(*wgt.value())
         else:
-            z0 = cfg.param_map_z0
+            z0 = Config.param_map_z0
 
         self.desk.update_param_map_params(
             z0=z0, iter=self.iter_slider.value(), skip=self.skip_slider.value()
@@ -227,7 +228,7 @@ class CourseWork(SimpleApp):
         self.desk.update_phase_plot_params(
             h=h,
             alpha=alpha,
-            z0=cfg.phase_z0 if not cfg.phase_plot_select_point else complex(
+            z0=Config.phase_z0 if not Config.phase_plot_select_point else complex(
                 *self.right_wgt.value()),
             clear=self.clear_cb.isChecked(),
         )
@@ -248,15 +249,15 @@ class CourseWork(SimpleApp):
             param_properties = {
                 "fixed_id": 1,
                 "fixed_value": alpha,
-                "other_min": cfg.h_bounds[0],
-                "other_max": cfg.h_bounds[1]
+                "other_min": Config.h_bounds[0],
+                "other_max": Config.h_bounds[1]
             }
         elif param == "alpha":
             param_properties = {
                 "fixed_id": 0,
                 "fixed_value": h,
-                "other_min": cfg.alpha_bounds[0],
-                "other_max": cfg.alpha_bounds[1]
+                "other_min": Config.alpha_bounds[0],
+                "other_max": Config.alpha_bounds[1]
             }
         else:
             raise RuntimeError()
@@ -272,12 +273,12 @@ class CourseWork(SimpleApp):
     def set_period_label(self):
         x_px, y_px = self.left_wgt._imageWidget.targetPx()
         if self.period_map is not None:
-            x_px = max(min(cfg.param_map_image_shape[0] - 1, x_px), 0)
-            y_px = max(min(cfg.param_map_image_shape[1] - 1, y_px), 0)
+            x_px = max(min(Config.param_map_image_shape[0] - 1, x_px), 0)
+            y_px = max(min(Config.param_map_image_shape[1] - 1, y_px), 0)
             y, x = int(y_px), int(x_px)
             per = self.period_map[y][x]
             self.period_label.setText(
-                "Detected period: {}".format("<chaos({})>".format(per) if per > 0.5 * cfg.param_map_iter else per)
+                "Detected period: {}".format("<chaos({})>".format(per) if per > 0.5 * Config.param_map_iter else per)
             )
 
     def set_values_no_signal(self, h, alpha):

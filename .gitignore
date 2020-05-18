@@ -15,6 +15,7 @@ research/**/*.json
 
 output
 config.json
+app/config.py
 
 *.npy
 *.png
