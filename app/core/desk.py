@@ -1,7 +1,5 @@
 from PyQt5.QtWidgets import QWidget
 
-import config as cfg
-
 from core.basins import BasinsOfAttraction
 from core.bif_tree import BifTree
 from core.fast_box_counting import FastBoxCounting
@@ -13,7 +11,7 @@ from multiprocessing import Lock
 
 class LabDesk(QWidget):
 
-    def __init__(self, ctx, queue):
+    def __init__(self, ctx, queue, cfg):
         super(LabDesk, self).__init__(None)
 
         param_bounds = (*cfg.h_bounds, *cfg.alpha_bounds)
@@ -45,7 +43,6 @@ class LabDesk(QWidget):
             "c": cfg.C,
             "tol": cfg.param_map_tolerance,
             "bounds": param_bounds,
-            "method": "fast",
             "seed": None
         }
 
@@ -57,7 +54,7 @@ class LabDesk(QWidget):
             "alpha": None,
             "c": cfg.C,
             "bounds": cfg.phase_shape,
-            "method": "dev",
+            "method": "periods",
         }
 
         self.phase_plot = PhasePlot(self.ctx)
@@ -99,13 +96,13 @@ class LabDesk(QWidget):
             return self.phase_plot.compute(self.queue, img, root_seq=self.root_seq, **self.phase_params)
 
     def update_basins_params(self, **kwargs):
-        self.basins_params = { **self.basins_params, **kwargs }
+        self.basins_params = {**self.basins_params, **kwargs}
 
     def draw_basins(self, img):
         with self.compute_lock:
             return self.basins.compute(self.queue, img, root_seq=self.root_seq, **self.basins_params)
 
-    def periods_and_sttractors(self):
+    def periods_and_attractors(self):
         from research.attractor_miner_param_map import periods_and_attractors_at_point
         import json
         import os

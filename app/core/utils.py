@@ -74,7 +74,7 @@ def read_image(queue, host_img, dev_img, shape):
 
 
 def copy_dev(ctx, buf):
-    return cl.Buffer(ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR, hostbuf=buf)
+    return cl.Buffer(ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=buf)
 
 
 def alloc_like(ctx, buf):

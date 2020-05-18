@@ -1,23 +1,14 @@
 import itertools
 import os
-from datetime import datetime
 
 import numpy
-from matplotlib import pyplot
-from sklearn.cluster import MeanShift, KMeans, estimate_bandwidth
-
 import pyopencl as cl
+from PIL import Image
+from matplotlib import pyplot
+from sklearn.cluster import MeanShift, estimate_bandwidth
 
 from config import C
-from core.param_map import ParameterMap
-from core.basins import BasinsOfAttraction
 from core.utils import create_context_and_queue, CLImg
-
-from PIL import Image
-import json
-
-from tqdm import tqdm
-
 
 Image.MAX_IMAGE_PIXELS = 192000000
 
@@ -173,23 +164,6 @@ def periods_and_attractors_at_point(ctx, queue, param, basins, h, alpha, attract
     save_with_axes(f"{output_name}_periods.png", image.as_img(), periods[:10], period_colors[:10], bounds)
 
 
-def draw_attractors_at_points(ctx, queue):
-    basins = BasinsOfAttraction(ctx)
-    param = ParameterMap(ctx)
-
-    with open(POINTS_SOURCE, "r") as f:
-        points = json.load(f)
-
-    attractors = extract_attractors(ATTR_SOURCE, f"attr_res_{ROOT_SEQ_STR}/all_attractors.png")
-
-    for i, point in enumerate(tqdm(points)):
-        break
-        periods_and_attractors_at_point(ctx, queue, param, basins, *point,
-                                        attractors, COLORS, ROOT_SEQ, "attr", f"attr_res_{ROOT_SEQ_STR}/{i}_")
-
-    draw_points_on_map(MAP_SOURCE, "attr_res/points.json", BOUNDS, f"attr_res_{ROOT_SEQ_STR}/map.png")
-
-
 def draw_points_on_map(map_file, points_file, bounds, output):
     import json
     with open(points_file) as f:
@@ -228,97 +202,8 @@ def draw_points_on_map(map_file, points_file, bounds, output):
     pyplot.close(fig)
 
 
-def compute_and_extract(basins: BasinsOfAttraction, queue, image, h, alpha):
-    points, periods = basins.deep_capture(
-        queue, image.shape,
-        skip=1 << 16,
-        skip_batch_size=1 << 12,
-        iter=1 << 6,
-        h=h, alpha=alpha, c=C,
-        bounds=BOUNDS,
-        root_seq=ROOT_SEQ,
-        seed=42
-    )
-    attractors = extract_attractors("", data=points)
-
-    basins.color_known_attractors(queue, image, points.shape[2], attractors, COLORS, points, periods)
-
-    attrs_to_colors = dict()
-    for a, c in zip(attractors, COLORS):
-        attrs_to_colors[a] = c
-
-    # save_with_axes(f"attr_res_{ROOT_SEQ_STR}/map_attractors.png", image.as_img(), attrs_to_colors, COLORS, BOUNDS)
-
-
-def main_new(ctx, queue):
-    basins = BasinsOfAttraction(ctx)
-    image = CLImg(ctx, (1024, 1024))
-
-    with open(POINTS_SOURCE, "r") as f:
-        points = json.load(f)
-
-    for (h, alpha) in tqdm(points):
-        compute_and_extract(basins, queue, image, h, alpha)
-
-
-def main_old(ctx, queue):
-    param = ParameterMap(ctx)
-    basins = BasinsOfAttraction(ctx)
-
-    image = CLImg(ctx, (1920 // 2, 1080))
-
-    def compute_map(name):
-        ts = datetime.now().strftime("%Y%m%d%H%M%S")
-
-        periods, points = basins.deep_capture(
-            queue, image.shape,
-            skip=1 << 16,
-            skip_batch_size=1 << 12,
-            iter=1 << 6,
-            z0=complex(0.5, 0.0),
-            c=C,
-            bounds=BOUNDS,
-            root_seq=ROOT_SEQ,
-            seed=42,
-            draw_image=True,
-        )
-        image_name = f"{name}-{ts}.png"
-        periods_name = f"{name}-{ts}-periods.npy"
-        points_name = f"{name}-{ts}.npy"
-        image.save(image_name)
-        numpy.save(periods_name, periods)
-        numpy.save(points_name, points)
-        return image_name, periods_name, points_name
-
-    _, periods_name, points_name = compute_map(f"attr_res_{ROOT_SEQ_STR}/map_{ROOT_SEQ_STR}")
-    # points_name = "attr_res_00001/map_00001-20200507184909.npy"
-    # periods_name = "attr_res_00001/map_00001-20200507184909-periods.npy"
-
-    print(points_name)
-    attractors = extract_attractors(points_name)
-
-    b = BasinsOfAttraction(ctx)
-
-    points = numpy.load(points_name)
-    periods = numpy.load(periods_name)
-
-    b.color_known_attractors(queue, image, points.shape[2], attractors, COLORS, points, periods)
-
-    attrs_to_colors = dict()
-    for a, c in zip(attractors, COLORS):
-        attrs_to_colors[a] = c
-
-    save_with_axes(f"attr_res_{ROOT_SEQ_STR}/map_attractors.png", image.as_img(), attrs_to_colors, COLORS, BOUNDS)
-
-
 def main(ctx, queue):
-    # main_old(ctx, queue)
-    # return
-
-    main_new(ctx, queue)
-
-    # draw_attractors_at_points(ctx, queue)
-    # draw_points_on_map("final_001_inc_20200422-013434.png", "attr_res/points.json", (-6, 0, 0.5, 1.0), "attr_res/map_updated.png")
+    pass
 
 
 if __name__ == '__main__':

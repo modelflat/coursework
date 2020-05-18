@@ -11,7 +11,6 @@ par = ParameterMap(ctx)
 
 
 bounds_top_left = (-6, 0, 0.5, 1.0)
-# bounds_top_left = (-3.75, -3 + -0.75 / 4, 0.75 - 0.25 / 4 + 0.25 / 16, 0.75)
 bounds_bottom_right = (0, 6, 0.0, 0.5)
 
 

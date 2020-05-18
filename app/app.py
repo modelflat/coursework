@@ -38,7 +38,7 @@ class CourseWork(SimpleApp):
     def __init__(self):
         super().__init__("Coursework")
 
-        self.desk = LabDesk(self.ctx, self.queue)
+        self.desk = LabDesk(self.ctx, self.queue, cfg)
 
         self.left_image = CLImg(self.ctx, cfg.default_shape)
         self.right_image = CLImg(self.ctx, cfg.default_shape)
@@ -94,12 +94,10 @@ class CourseWork(SimpleApp):
 
         self.right_wgts = {
             "phase":  self.draw_phase,
-            "basins (sections)": lambda: self.draw_basins(method="sections"),
             "basins (periods)": lambda: self.draw_basins(method="periods"),
-            "basins (periods+attractors)": lambda: self.draw_basins(method="periods+attractors"),
         }
         self.right_mode_cmb.addItems(self.right_wgts.keys())
-        self.right_mode_cmb.setCurrentText("basins (periods+attractors)")
+        self.right_mode_cmb.setCurrentText("basins (periods)")
 
         self.root_seq_edit.setText("0 0 1")
 
@@ -310,7 +308,7 @@ class CourseWork(SimpleApp):
             h=h, alpha=alpha, method=None
         )
 
-        self.desk.periods_and_sttractors()
+        self.desk.periods_and_attractors()
 
 
 if __name__ == '__main__':
