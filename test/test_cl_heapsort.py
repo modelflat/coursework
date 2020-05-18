@@ -3,7 +3,8 @@ import pyopencl as cl
 import unittest
 
 
-from app.core import CL_INCLUDE_PATH, read_file
+from app.core import CL_INCLUDE_PATH
+from app.core.utils import read_file
 
 
 TEST_KERNEL = r"""
