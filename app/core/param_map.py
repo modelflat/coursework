@@ -1,6 +1,5 @@
 import numpy
 import pyopencl as cl
-from tqdm import tqdm
 
 from . import build_program_from_file
 from .utils import prepare_root_seq, random_seed, alloc_like, real_type, copy_dev
@@ -20,21 +19,20 @@ class ParameterMap:
 
         periods = numpy.empty(shape, dtype=numpy.int32)
         periods_device = alloc_like(self.ctx, periods)
-
-        self.prg.fast_param_map(
+        self.prg.param_map(
             queue, shape, None,
-            # z0
-            numpy.array((z0.real, z0.imag), dtype=real_type),
-            # c
-            numpy.array((c.real, c.imag), dtype=real_type),
             # bounds
             numpy.array(bounds, dtype=real_type),
+            # c
+            numpy.array((c.real, c.imag), dtype=real_type),
+            # tol
+            real_type(tol),
+            # z0
+            numpy.array((z0.real, z0.imag), dtype=real_type),
             # skip
             numpy.int32(skip),
             # iter
             numpy.int32(iter),
-            # tol
-            real_type(tol),
             # seed
             numpy.uint64(seed if seed is not None else random_seed()),
             # seq size
@@ -50,57 +48,6 @@ class ParameterMap:
         cl.enqueue_copy(queue, periods, periods_device)
 
         return img.read(queue), periods
-
-    def compute_tiled(self, queue, img, full_size, skip, iter, z0, c, tol, bounds, root_seq=None, seed=None):
-        if full_size[0] % img.shape[0] != 0 or full_size[0] < img.shape[0] \
-                or full_size[1] % img.shape[1] != 0 or full_size[1] < img.shape[1]:
-            raise NotImplementedError("full_size is not trivially covered by img.shape")
-
-        xmin, xmax, ymin, ymax = bounds
-
-        nx = full_size[0] // img.shape[0]
-        ny = full_size[1] // img.shape[1]
-
-        x_ticks = numpy.linspace(xmin, xmax, nx + 1 if nx != 1 else 0)
-        y_ticks = numpy.linspace(ymin, ymax, ny + 1 if ny != 1 else 0)
-
-        image = None
-        periods = None
-        pbar = tqdm(
-            desc="col loop (col={}x{})".format(img.shape[0], full_size[1]),
-            total=(len(x_ticks) - 1) * (len(y_ticks) - 1),
-            ncols=120
-        )
-        for tile_x, x_min, x_max in zip(range(len(x_ticks)), x_ticks, x_ticks[1:]):
-            col = []
-            col_periods = []
-            for tile_y, y_min, y_max in zip(range(len(y_ticks)), y_ticks, y_ticks[1:]):
-                pbar.set_description("computing tile {:3d},{:3d} -- bounds {:+4.4f}:{:+4.4f}, {:+4.4f}:{:+4.4f}".format(
-                    tile_x, tile_y, x_min, x_max, y_min, y_max
-                ))
-                image_part, periods_part = self.compute(
-                    queue, img, skip, iter, z0, c, 1 / 10**tol, (x_min, x_max, y_min, y_max), root_seq, seed
-                )
-                col.append(image_part.copy())
-                col_periods.append(periods_part)
-
-                pbar.update()
-            col = numpy.vstack(col[::-1])
-            col_periods = numpy.vstack(col_periods[::-1])
-
-            if periods is None:
-                periods = col_periods
-            else:
-                periods = numpy.hstack((periods, col_periods))
-
-            if image is None:
-                image = col
-            else:
-                image = numpy.hstack((image, col))
-
-        pbar.close()
-
-        return image, periods
 
     def compute_incremental(self, queue, img, skip, skip_batch_size, iter, z0, c, bounds,
                             root_seq, tolerance_decimals=3, seed=None,
@@ -127,12 +74,7 @@ class ParameterMap:
 
         final_points_dev = alloc_like(self.ctx, final_points)
 
-        pbar = tqdm(
-            total=skip // skip_batch_size + 2,
-            ncols=120,
-        )
-
-        self.prg.capture_points_init(
+        self.prg.incremental_param_map_init(
             queue, shape, None,
             bounds_dev, c_dev, z0_dev,
             numpy.uint64(seed if seed is not None else random_seed()),
@@ -140,11 +82,10 @@ class ParameterMap:
             seq_pos_dev, rng_state_dev, points_dev
         )
         queue.finish()
-        pbar.update()
 
         skip_batch_dev = numpy.int32(skip_batch_size)
         for _ in range(skip // skip_batch_size):
-            self.prg.capture_points_next(
+            self.prg.incremental_param_map_next(
                 queue, shape, None,
                 bounds_dev, c_dev,
                 skip_batch_dev,
@@ -152,9 +93,8 @@ class ParameterMap:
                 seq_pos_dev, rng_state_dev, points_dev
             )
             queue.finish()
-            pbar.update()
 
-        self.prg.capture_points_finalize(
+        self.prg.incremental_param_map_finalize(
             queue, shape, None,
             bounds_dev, c_dev,
             real_type(1 / 10 ** tolerance_decimals),
@@ -178,9 +118,6 @@ class ParameterMap:
             )
             queue.finish()
             img.read(queue)
-
-        pbar.update()
-        pbar.close()
 
         return periods, final_points
 
