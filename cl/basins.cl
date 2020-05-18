@@ -169,6 +169,7 @@ kernel void count_periods(
 }
 
 // https://en.wikipedia.org/wiki/Lexicographically_minimal_string_rotation#Booth's_Algorithm
+int find_minimal_rotation(int, size_t, const global real*, real);
 int find_minimal_rotation(int n_points, size_t shift, const global real* points, real tol) {
     char failure[MAX_ITER];
     for (int i = 0; i < n_points; ++i) {
@@ -202,6 +203,7 @@ int find_minimal_rotation(int n_points, size_t shift, const global real* points,
     return k;
 }
 
+void rotate_sequence(int, size_t, global real*, int);
 void rotate_sequence(int n_points, size_t shift, global real* points, int k) {
     for (int c = 0, v = 0; c < n_points; ++v) {
         ++c;
