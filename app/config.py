@@ -8,14 +8,16 @@ default_shape = (768, 768)
 # h_bounds = (-10, 10)
 # h_bounds = (-6, 6)
 # h_bounds = (-4.3114, -4.31)
-h_bounds = (-6, -3)
+h_bounds = (-6, -0)
 # h_bounds = (0, 6)
+# h_bounds = (-3.75, -3 + -0.75 / 4)
 
 # range for varying `alpha`
 # alpha_bounds = (0, 2)
 # alpha_bounds = (0.0, 1.000)
 # alpha_bounds = (0.6044, 0.6045)
 alpha_bounds = (0.5, 1)
+# alpha_bounds = (0.75 - 0.25 / 4 + 0.25 / 16, 0.75)
 
 # `c` constant
 C = complex(-0.5, 0.5)

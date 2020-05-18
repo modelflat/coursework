@@ -9,7 +9,7 @@ from core.param_map import ParameterMap
 from core.phase_plot import PhasePlot
 
 from multiprocessing import Lock
-import numpy
+
 
 class LabDesk(QWidget):
 
@@ -78,15 +78,7 @@ class LabDesk(QWidget):
 
         self.root_seq = None
 
-        # self.left_widget = Image2D()
-        # self.right_widget = Image2D()
-
         self.compute_lock = Lock()
-
-        from research.attractor_miner_param_map import extract_attractors
-        points_name = "../research/test-map-20200419192630.npy"
-        self.precomputed_attractors = extract_attractors(points_name, show=False)
-        self.precomputed_points = numpy.load(points_name)
 
     def update_root_sequence(self, s):
         try:
@@ -111,24 +103,7 @@ class LabDesk(QWidget):
 
     def draw_basins(self, img):
         with self.compute_lock:
-            colors = [
-                (1.0, 0.0, 0.0, 1.0),
-                (0.0, 1.0, 0.0, 1.0),
-                (0.0, 0.0, 1.0, 1.0),
-                (1.0, 0.0, 1.0, 1.0),
-                (0.0, 1.0, 1.0, 1.0),
-                (1.0, 0.0, 1.0, 1.0),
-                (1.0, 1.0, 0.0, 1.0),
-            ] * 3
-            if self.basins_params["method"] == "precomputed":
-                return self.basins.compute_and_color_known(
-                    self.queue, img, self.basins_params['skip'], self.basins_params['iter'],
-                    self.basins_params['h'], self.basins_params['alpha'], self.basins_params['c'],
-                    self.basins_params['bounds'], self.precomputed_attractors, colors,
-                    self.root_seq, tolerance_decimals=3, seed=42,
-                )
-            else:
-                return self.basins.compute(self.queue, img, root_seq=self.root_seq, **self.basins_params)
+            return self.basins.compute(self.queue, img, root_seq=self.root_seq, **self.basins_params)
 
     def periods_and_sttractors(self):
         from research.attractor_miner_param_map import periods_and_attractors_at_point

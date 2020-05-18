@@ -56,7 +56,7 @@ class CourseWork(SimpleApp):
             createSlider("real", cfg.alpha_bounds, withLabel="alpha = {:2.3f}", labelPosition="top", withValue=0.0)
 
         self.skip_slider, self.skip_slider_wgt = \
-            createSlider("int", (1, 256), withLabel="skip = {}", labelPosition="top", withValue=96)
+            createSlider("int", (1, 2048), withLabel="skip = {}", labelPosition="top", withValue=96)
         self.iter_slider, self.iter_slider_wgt = \
             createSlider("int", (1, 128), withLabel="iter = {}", labelPosition="top", withValue=48)
 
@@ -97,7 +97,6 @@ class CourseWork(SimpleApp):
             "basins (sections)": lambda: self.draw_basins(method="sections"),
             "basins (periods)": lambda: self.draw_basins(method="periods"),
             "basins (periods+attractors)": lambda: self.draw_basins(method="periods+attractors"),
-            "precomputed attractors": lambda: self.draw_basins(method="precomputed"),
         }
         self.right_mode_cmb.addItems(self.right_wgts.keys())
         self.right_mode_cmb.setCurrentText("basins (periods+attractors)")
