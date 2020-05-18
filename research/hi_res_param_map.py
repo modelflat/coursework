@@ -4,9 +4,9 @@ import numpy
 
 from tqdm import tqdm
 
-from config import C
-from core.param_map import ParameterMap
-from core.utils import create_context_and_queue, CLImg
+from app.config import C
+from app.core.param_map import ParameterMap
+from app.core.utils import create_context_and_queue, CLImg
 
 ctx, queue = create_context_and_queue()
 

@@ -4,8 +4,6 @@ import pyopencl as cl
 from . import build_program_from_file
 from .utils import prepare_root_seq, random_seed, alloc_like, real_type, copy_dev
 
-complex_t = numpy.complex64 if real_type == numpy.float32 else numpy.complex128
-
 
 class BasinsOfAttraction:
 
@@ -53,7 +51,7 @@ class BasinsOfAttraction:
         )
 
     def _find_attractors(self, queue, shape, iter: int, periods: cl.Buffer, points: cl.Buffer, tol):
-        assert iter <= 64, "max_iter is  currently static and is 64"
+        assert iter <= 64, "max_iter is currently static and is 64"
 
         period_counts = numpy.zeros((iter,), dtype=numpy.int32)
         period_counts_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR,
