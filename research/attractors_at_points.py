@@ -27,8 +27,8 @@ points_file = "points.json"
 
 
 def find_in_point(filename, root_seq, h, alpha):
-    if os.path.exists(filename):
-        return
+    # if os.path.exists(filename):
+    #     return
 
     result = basins.find_attractors(
         queue, SIZE, SKIP, ITER, h, alpha, Config.C, BOUNDS, root_seq, 
@@ -48,6 +48,7 @@ def find_in_point(filename, root_seq, h, alpha):
         alpha = 0.7
 
     attractors_found = False
+    attractors = dict()
 
     for period, (data, counts) in result.items():
         data = data[counts > thr]
@@ -61,6 +62,12 @@ def find_in_point(filename, root_seq, h, alpha):
         data = data[order]
         counts = counts[order]
 
+        found = attractors.get(str(period), dict())
+        for att, c in zip(data, counts):
+            att = json.dumps(tuple(map(lambda x: tuple(x), att)))
+            found[att] = found.get(att, 0) + int(c)
+        attractors[str(period)] = found
+
         for i, attr in enumerate(data):
             area = 100 * counts[i] / total
             ax.scatter(*attr.T, label=f"Attractor #{i + 1} of period {period}; {area:.2f}% of total", alpha=alpha)
@@ -70,6 +77,21 @@ def find_in_point(filename, root_seq, h, alpha):
         fig.tight_layout()
         fig.legend()
         fig.savefig(filename)
+        fig.close()
+
+        if os.path.exists("attractors.json"):
+            with open("attractors.json") as f:
+                saved_attractors = json.load(f)
+        else:
+            saved_attractors = dict()
+        
+        for period, attrs in attractors.items():
+            for attr, c in attrs.items():
+                attrs[attr] = attrs.get(attr, 0) + c
+            saved_attractors[period] = attrs
+
+        with open("attractors.json", "w") as f:
+            json.dump(saved_attractors, f, sort_keys=True, indent=2)
 
 
 def main():

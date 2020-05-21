@@ -51,7 +51,7 @@ class ParameterMap:
 
     def compute_incremental(self, queue, img, skip, skip_batch_size, iter, z0, c, bounds,
                             root_seq, tolerance_decimals=3, seed=None,
-                            draw_image=False, capture_points=True):
+                            draw_image=False, capture_points=True, progress=None):
         shape = img.shape
 
         z0_dev = numpy.array((z0.real, z0.imag), dtype=real_type)
@@ -93,6 +93,8 @@ class ParameterMap:
                 seq_pos_dev, rng_state_dev, points_dev
             )
             queue.finish()
+            if progress is not None:
+                progress.update()
 
         self.prg.incremental_param_map_finalize(
             queue, shape, None,

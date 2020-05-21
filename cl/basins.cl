@@ -95,7 +95,7 @@ kernel void capture_points_iter(
 
         vstore2(state.z, seq_start_coord + i, points);
 
-        if (!period_ready && (any(isnan(state.z)) || any(fabs(state.z) > 1e6))) {
+        if (!period_ready && (any(isnan(state.z)) || any(fabs(state.z) > 1e4))) {
             p = 0;
             period_ready = 1;
         }

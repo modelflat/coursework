@@ -13,8 +13,8 @@ ctx, queue = create_context_and_queue()
 solver = ParameterMap(ctx)
 
 SIZE = (12288, 16384)
-SKIP = 100000
-SKIP_BATCH = 1000
+SKIP = 1 << 14
+SKIP_BATCH = 1 << 7
 ITER = 1 << 6
 Z0 = complex(0.5, 0.0)
 OUTPUT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../COURSEWORK_DATA/PARAMETER_MAPS"))
@@ -42,7 +42,7 @@ script = [
 ]
 
 
-def compute_high_res_param_map(filename, bounds, root_sequence, parts=4):
+def compute_high_res_param_map(filename, bounds, root_sequence, parts=4, progress=None):
     assert SIZE[1] % parts == 0
 
     os.makedirs(os.path.dirname(filename), exist_ok=True)
@@ -66,7 +66,8 @@ def compute_high_res_param_map(filename, bounds, root_sequence, parts=4):
                 bounds[2] + part * (bounds[3] - bounds[2]) / parts,
                 bounds[2] + (part + 1) * (bounds[3] - bounds[2]) / parts,
             ),
-            root_seq=root_sequence, seed=42, tolerance_decimals=3, capture_points=False, draw_image=True
+            root_seq=root_sequence, seed=42, tolerance_decimals=3, capture_points=False, draw_image=True,
+            progress=progress
         )
         periods_parts.append(periods_part)
         image_parts.append(image.host.copy())
@@ -85,6 +86,6 @@ def compute_high_res_param_map(filename, bounds, root_sequence, parts=4):
     del periods
     del periods_parts
 
-
-for statement in tqdm(script, ncols=120):
-    compute_high_res_param_map(*statement)
+progress = tqdm(total=len(script) * 4 * SKIP // SKIP_BATCH, ncols=120)
+for statement in script:
+    compute_high_res_param_map(*statement, progress=progress)
