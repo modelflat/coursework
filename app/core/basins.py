@@ -67,6 +67,14 @@ class BasinsOfAttraction:
 
         cl.enqueue_copy(queue, period_counts, period_counts_dev)
 
+        self.prg.round_points(
+            queue, (n_points * iter,), None,
+            real_type(tol),
+            points
+        )
+
+        cl.enqueue_barrier(queue)
+
         self.prg.rotate_captured_sequences(
             queue, (n_points,), None,
             numpy.int32(iter),
@@ -83,7 +91,7 @@ class BasinsOfAttraction:
                 numpy.cumsum(volume_per_period, axis=0, dtype=numpy.int64)[:-1]
             )
         )
-        seq_positions_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR,
+        seq_positions_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_ONLY | cl.mem_flags.COPY_HOST_PTR,
                                       hostbuf=seq_positions)
 
         current_positions = numpy.zeros_like(seq_positions, dtype=numpy.int32)
@@ -97,7 +105,6 @@ class BasinsOfAttraction:
         self.prg.align_rotated_sequences(
             queue, (n_points,), None,
             numpy.int32(iter),
-            real_type(tol),
             periods,
             seq_positions_dev,
             points,
@@ -116,6 +123,26 @@ class BasinsOfAttraction:
             end = start + period * points_in_period
             data = new_points[start:end].reshape((points_in_period, period, 2))
             unique_data = numpy.unique(data, axis=0, return_counts=True)
+
+            hashed_points = numpy.empty((points_in_period,), dtype=numpy.uint64)
+            hashed_points_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=hashed_points.nbytes)
+
+            self.prg.hash_sequences(
+                queue, (points_in_period,), None,
+                numpy.int32(period),
+                seq_positions_dev,
+                new_points_dev,
+                hashed_points_dev
+            )
+
+            cl.enqueue_copy(queue, hashed_points, hashed_points_dev)
+            up, cp = numpy.unique(hashed_points, return_counts=True)
+            
+            if (cp != unique_data[1]).any():
+                print(period)
+                print(list(unique_data[1][(unique_data[1] != cp)]))
+                print(list(cp[(unique_data[1] != cp)]))
+
             result[period] = unique_data
 
         return result

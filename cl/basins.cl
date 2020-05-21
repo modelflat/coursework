@@ -256,9 +256,19 @@ kernel void rotate_captured_sequences(
     rotate_sequence(period, id * iter, points, start);
 }
 
+kernel void round_points(
+    const real tol,
+    global real* points
+) {
+    const size_t id = get_global_id(0);
+    vstore2(
+        round_point_tol(vload2(id, points), tol),
+        id, points
+    );
+}
+
 kernel void align_rotated_sequences(
     const int iter,
-    const real tol,
     const global int* periods,
     const global ulong* sequence_positions,
     const global real* points,
@@ -277,7 +287,38 @@ kernel void align_rotated_sequences(
     const size_t position = seq_no * period + (period == 1 ? 0 : sequence_positions[period - 1]);
 
     for (int i = 0; i < period; ++i) {
-        const real2 t = vload2(shift + i, points);
-        vstore2(round_point_tol(t, tol), position + i, points_output);
+        vstore2(vload2(shift + i, points), position + i, points_output);
     }
 }
+
+#define FNV_OFFSET_BASIS 0xcbf29ce484222325
+#define FNV_PRIME 0x00000100000001B3
+
+inline ulong fnv_1a_64(size_t len, size_t shift, const global real* points) {
+    ulong hash = FNV_OFFSET_BASIS;
+
+    for (size_t i = 0; i < len; ++i) {
+        const real2 point = vload2(shift + i, points);
+        for (size_t j = 0; j < sizeof(real2); ++j) {
+            hash ^= *((uchar*)(&point) + j);
+            hash *= FNV_PRIME;
+        }
+    }
+
+    return hash;
+}
+
+kernel void hash_sequences(
+    const int len,
+    const global ulong* sequence_positions,
+    const global real* points,
+    global ulong* hashed_points
+) {
+    const int id = get_global_id(0);
+    const size_t position = id * len + (len == 1 ? 0 : sequence_positions[len - 1]);
+
+    const ulong hash = fnv_1a_64(len, position, points);
+
+    hashed_points[id] = hash;
+}
+
