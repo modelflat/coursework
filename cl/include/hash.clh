@@ -1,0 +1,35 @@
+// Hashing routines for sequences of complex numbers
+
+#ifndef __HASH_CLH
+#define __HASH_CLH
+
+#include "complex.clh"
+
+#define FNV32_OFFSET_BASIS 0x811c9dc5
+#define FNV32_PRIME 0x01000193
+inline uint fnv_1a_32(size_t len, size_t shift, const global real* points) {
+    uint hash = FNV32_OFFSET_BASIS;
+
+    for (size_t i = 0; i < len; ++i) {
+        const real2 point = vload2(shift + i, points);
+        for (size_t j = 0; j < sizeof(real2); ++j) {
+            hash ^= *((uchar*)(&point) + j);
+            hash *= FNV32_PRIME;
+        }
+    }
+
+    return hash;
+}
+
+inline uint fnv_1a_bounded(uint max, size_t len, size_t shift, const global real* points) {
+    const uint n_bits = 32 - clz(max);
+    const uint hash = fnv_1a_32(len, shift, points);
+    // see https://tools.ietf.org/html/draft-eastlake-fnv-16#section-3
+    return (hash ^ (hash >> n_bits)) & ((1 << n_bits) - 1);
+}
+
+inline uint fnv_hash(uint max, size_t len, size_t shift, const global real* points) {
+    return fnv_1a_bounded(max, len, shift, points) % (max + 1);
+}
+
+#endif

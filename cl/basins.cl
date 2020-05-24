@@ -1,7 +1,10 @@
 #include "newton.clh"
+#include "hash.clh"
+#include "rotations.clh"
 #include "util.clh"
 
 // capture points and periods after `skip + iter` iterations
+// TODO deprecate this
 kernel void capture_points(
     const int skip,
     const int iter,
@@ -49,7 +52,7 @@ kernel void capture_points(
 
     *periods = p;
 
-    vstore2(round_point(state.z, 4), seq_start_coord, points);
+    vstore2(state.z, seq_start_coord, points);
 }
 
 // capture points and periods after `skip` iterations
@@ -125,7 +128,7 @@ kernel void color_basins_periods(
     write_imagef(image, COORD_2D_INV_Y, color);
 }
 
-//
+// TODO deprecate this
 kernel void color_known_attractors(
     const int iter,
     const int n_attractors,
@@ -157,79 +160,20 @@ kernel void color_known_attractors(
     write_imagef(image, coord, (float4)(0.0f, 0.0f, 0.0f, 1.0f));
 }
 
-// TODO this should be dynamic
-#define MAX_ITER 64
-
-#define PT_LESS(a, b) (length(a) < length(b))
-#define PT_GREATER(a, b) (length(a) > length(b))
-#define PT_NOT_EQUAL(a, b) (PT_LESS(a, b) || PT_GREATER(a, b))
-
-//
-kernel void count_periods(
-    const global int* periods,
-    global int* period_counts
+// Round points to a certain precision
+kernel void round_points(
+    const real tol,
+    global real* points
 ) {
-    const int id = get_global_id(0);
-    const int period = periods[id];
-    // lock contention is over 9000
-    atomic_inc(period_counts + period - 1);
+    const size_t id = get_global_id(0);
+    vstore2(
+        round_point_tol(vload2(id, points), tol),
+        id, points
+    );
 }
 
-// https://en.wikipedia.org/wiki/Lexicographically_minimal_string_rotation#Booth's_Algorithm
-int find_minimal_rotation(int, size_t, const global real*, real);
-int find_minimal_rotation(int n_points, size_t shift, const global real* points, real tol) {
-    char failure[MAX_ITER];
-    for (int i = 0; i < n_points; ++i) {
-        failure[i] = -1;
-    }
-
-    int k = 0;
-
-    for (int j = 1; j < n_points; ++j) {
-        const real2 sj = vload2(shift + j, points);
-        int i = failure[j - k - 1];
-        real2 sj_next = vload2(shift + ((k + i + 1) % n_points), points);
-        while (i != -1 && PT_NOT_EQUAL(sj, sj_next)) {
-            if (PT_LESS(sj, sj_next)) {
-                k = j - i - 1;
-            }
-            i = failure[i];
-            sj_next = vload2(shift + ((k + i + 1) % n_points), points);
-        }
-        if (PT_NOT_EQUAL(sj, sj_next)) {
-            const real2 sk = vload2(shift + (k % n_points), points);
-            if (PT_LESS(sj, sk)) {
-                k = j;
-            }
-            failure[j - k] = -1;
-        } else {
-            failure[j - k] = i + 1;
-        }
-    }
-
-    return k;
-}
-
-void rotate_sequence(int, size_t, global real*, int);
-void rotate_sequence(int n_points, size_t shift, global real* points, int k) {
-    for (int c = 0, v = 0; c < n_points; ++v) {
-        ++c;
-        int target = v;
-        int target_next = v + k;
-        real2 tmp = vload2(shift + v, points);
-        while (target_next != v) {
-            ++c;
-            vstore2(
-                vload2(shift + target_next, points), shift + target, points
-            );
-            target = target_next;
-            target_next = (target_next + k) % n_points;
-        }
-        vstore2(tmp, shift + target, points);
-    }
-}
-
-kernel void rotate_captured_sequences(
+// Rotate all sequences to a "minimal rotation"
+kernel void rotate_sequences(
     const int iter,
     const real tol,
     const global int* periods,
@@ -256,69 +200,154 @@ kernel void rotate_captured_sequences(
     rotate_sequence(period, id * iter, points, start);
 }
 
-kernel void round_points(
-    const real tol,
-    global real* points
+kernel void hash_sequences(
+    const uint iter,
+    const uint table_size,
+    const global uint* periods,
+    const global real* points,
+    global uint* sequence_hashes
 ) {
-    const size_t id = get_global_id(0);
-    vstore2(
-        round_point_tol(vload2(id, points), tol),
-        id, points
-    );
+    const uint id = get_global_id(0);
+    const size_t shift = id * iter;
+    const uint period = periods[id];
+    sequence_hashes[id] = fnv_hash(table_size - 1, period, shift, points);
 }
 
-kernel void align_rotated_sequences(
-    const int iter,
-    const global int* periods,
-    const global ulong* sequence_positions,
-    const global real* points,
-    global int* current_positions,
-    global real* points_output
+// Count sequences using hash table approach
+kernel void count_unique_sequences(
+    const uint iter,
+    const uint table_size,
+    const global uint* periods,
+    const global uint* sequence_hashes,
+    global uint* table,
+    global uint* table_data
 ) {
-    const int id = get_global_id(0);
-    const int period = periods[id];
+    const uint id = get_global_id(0);
+    const uint hash = sequence_hashes[id];
+    if (!atomic_inc(table + hash)) {
+        table_data[hash] = id;
+    }
+}
 
-    if (period <= 0 || period == iter) {
+// TODO current implementation does not really calculate the exact number of hash collisions,
+// but rather it calculates the number of sequences with colliding hashes. Therefore it cannot
+// be relied upon for the purposes other than verifying whether there were *any* collisions or not.
+kernel void check_collisions(
+    const real tol,
+    const uint iter,
+    const uint table_size,
+    const global uint* periods,
+    const global uint* sequence_hashes,
+    const global real* points,
+    const global uint* table,
+    const global uint* table_data,
+    global uint* collisions
+) {
+    const uint id = get_global_id(0);
+    const uint period = periods[id];
+    const size_t shift = id * iter;
+    const uint hash = sequence_hashes[id];
+
+    size_t shift_by_hash = table_data[hash] * iter;
+    for (int i = 0; i < (int)period; ++i) {
+        const real2 point1 = vload2(shift + i, points);
+        const real2 point2 = vload2(shift_by_hash + i, points);
+        if (any(fabs(point1 - point2) >= tol)) {
+            // insane lock contention, but this is more of a debug code
+            atomic_inc(collisions);
+            break;
+        }
+    }
+}
+
+// Find out how many sequences of each period there are
+kernel void count_periods_of_unique_sequences(
+    const global uint* periods,
+    const global uint* table,
+    const global uint* table_data,
+    global uint* period_counts
+) {
+    // TODO this kernel has very high parallelism but very little actual work to do
+    const uint hash = get_global_id(0);
+    if (table[hash] == 0) {
+        return;
+    }
+    const int period = periods[table_data[hash]];
+    if (period < 1) {
         return;
     }
 
-    const size_t shift = id * iter;
-    const int seq_no = atomic_inc(current_positions + period - 1);
-    const size_t position = seq_no * period + (period == 1 ? 0 : sequence_positions[period - 1]);
-
-    for (int i = 0; i < period; ++i) {
-        vstore2(vload2(shift + i, points), position + i, points_output);
-    }
+    atomic_inc(period_counts + period - 1);
 }
 
-#define FNV_OFFSET_BASIS 0xcbf29ce484222325
-#define FNV_PRIME 0x00000100000001B3
+// Extract and align unique sequences into chunks sorted by period
+kernel void gather_unique_sequences(
+    const uint iter,
+    const global uint* periods,
+    const global real* points,
+    const global uint* table,
+    const global uint* table_data,
+    const global uint* period_counts,
+    const global uint* hash_positions,
+    const global uint* sequence_positions,
+    global uint* current_positions,
+    global real* unique_sequences,
+    global uint* unique_sequences_info
+) {
+    const uint hash = get_global_id(0);
+    const uint count = table[hash];
+    if (count == 0) {
+        return;
+    }
 
-inline ulong fnv_1a_64(size_t len, size_t shift, const global real* points) {
-    ulong hash = FNV_OFFSET_BASIS;
+    const uint id = table_data[hash];
+    const int period = periods[id];
+    if (period < 1) {
+        return;
+    }
 
-    for (size_t i = 0; i < len; ++i) {
-        const real2 point = vload2(shift + i, points);
-        for (size_t j = 0; j < sizeof(real2); ++j) {
-            hash ^= *((uchar*)(&point) + j);
-            hash *= FNV_PRIME;
+    const uint shift = id * iter;
+
+    const uint base = (period == 1) ? 0 : sequence_positions[period - 1];
+    const uint position = atomic_inc(current_positions + period - 1);
+
+    for (int i = 0; i < period; ++i) {
+        vstore2(vload2(shift + i, points), base + position + i, unique_sequences);
+    }
+
+    const uint hash_base = (period == 1) ? 0 : hash_positions[period - 1];
+    vstore2(
+        (uint2)(hash, count),
+        hash_base + position, unique_sequences_info
+    );
+}
+
+// Color attractors relying on their hashes
+kernel void color_attractors(
+    const int n,
+    const global uint* hashes,
+    const global float* colors,
+    const global uint* hashed_points,
+    write_only image2d_t image
+) {
+    const int2 coord = COORD_2D_INV_Y;
+    const int id = coord.y * get_global_size(0) + coord.x;
+
+    const ulong hash = hashed_points[id];
+
+    // TODO this should be replaced by binary search or some variant of hash table
+    int color_no = -1;
+    for (int i = 0; i < n; ++i) {
+        if (hashes[i] == hash) {
+            color_no = i;
+            break;
         }
     }
 
-    return hash;
+    if (color_no != -1) {
+        const float4 color = hsv2rgb(vload3(color_no, colors));
+        write_imagef(image, coord, color);
+    } else {
+        write_imagef(image, coord, (float4)(0.0f, 0.0f, 0.0f, 0.0f));
+    }
 }
-
-kernel void hash_sequences(
-    const int len,
-    const global ulong* sequence_positions,
-    const global real* points,
-    global ulong* hashed_points
-) {
-    const int id = get_global_id(0);
-    const size_t position = id * len + (len == 1 ? 0 : sequence_positions[len - 1]);
-
-    const ulong hash = fnv_1a_64(len, position, points);
-
-    hashed_points[id] = hash;
-}
-
