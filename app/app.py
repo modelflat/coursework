@@ -96,9 +96,10 @@ class CourseWork(SimpleApp):
         self.right_wgts = {
             "phase":  self.draw_phase,
             "basins (periods)": lambda: self.draw_basins(method="periods"),
+            "basins (attractors)": lambda: self.draw_basins(method="basins"),
         }
         self.right_mode_cmb.addItems(self.right_wgts.keys())
-        self.right_mode_cmb.setCurrentText("basins (periods)")
+        self.right_mode_cmb.setCurrentText("basins (attractors)")
 
         self.root_seq_edit.setText("0 0 1")
 

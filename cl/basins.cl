@@ -302,7 +302,7 @@ kernel void gather_unique_sequences(
 
     const uint id = table_data[hash];
     const int period = periods[id];
-    if (period < 1) {
+    if (period < 1 || period > (int)iter - 1) {
         return;
     }
 
@@ -312,7 +312,7 @@ kernel void gather_unique_sequences(
     const uint position = atomic_inc(current_positions + period - 1);
 
     for (int i = 0; i < period; ++i) {
-        vstore2(vload2(shift + i, points), base + position + i, unique_sequences);
+        vstore2(vload2(shift + i, points), base + position * period + i, unique_sequences);
     }
 
     const uint hash_base = (period == 1) ? 0 : hash_positions[period - 1];
@@ -335,14 +335,7 @@ kernel void color_attractors(
 
     const ulong hash = hashed_points[id];
 
-    // TODO this should be replaced by binary search or some variant of hash table
-    int color_no = -1;
-    for (int i = 0; i < n; ++i) {
-        if (hashes[i] == hash) {
-            color_no = i;
-            break;
-        }
-    }
+    const int color_no = binary_search(n, hashes, hash);
 
     if (color_no != -1) {
         const float4 color = hsv2rgb(vload3(color_no, colors));

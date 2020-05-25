@@ -65,8 +65,9 @@ inline int pair_gt(const real2 p1, const real2 p2) {
     return !(pair_lt(p1, p2) || pair_eq(p1, p2));
 }
 
-int binary_search(int, const global real*, real2);
-int binary_search(int size, const global real* arr, real2 value) {
+// TODO deprecate this
+int binary_search_old(int, const global real*, real2);
+int binary_search_old(int size, const global real* arr, real2 value) {
     int l = 0, r = size;
 
     while (l < r) {
@@ -80,6 +81,30 @@ int binary_search(int size, const global real* arr, real2 value) {
             return -1;
         }
         if (pair_lt(mid_value, value)) {
+            l = mid;
+        } else {
+            r = mid;
+        }
+    }
+
+    return (r + l) / 2;
+}
+
+int binary_search(int, const global uint*, uint);
+int binary_search(int size, const global uint* arr, uint value) {
+    int l = 0, r = size;
+
+    while (l < r) {
+        const int mid = (r + l) / 2;
+        const uint mid_value = arr[mid];
+
+        if (mid_value == value) {
+            return mid;
+        }
+        if (r == l + 1) {
+            return -1;
+        }
+        if (mid_value < value) {
             l = mid;
         } else {
             r = mid;
