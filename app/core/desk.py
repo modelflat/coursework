@@ -61,7 +61,8 @@ class LabDesk(QWidget):
             "bounds": cfg.phase_shape,
             "method": "periods",
             "color_init": None,
-            "color_fn": basins_simple_color_fn
+            "color_fn": basins_simple_color_fn,
+            "threshold": 10
         }
 
         self.phase_plot = PhasePlot(self.ctx)

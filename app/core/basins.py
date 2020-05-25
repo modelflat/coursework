@@ -17,6 +17,9 @@ class BasinsOfAttraction:
         self.periods = None
         self.periods_dev = None
         self.sequence_hashes_dev = None
+        self.table_size = None
+        self.table_dev = None
+        self.table_data_dev = None
 
     def _maybe_allocate_buffers(self, shape, iter):
         sample = real_type(0)
@@ -28,25 +31,31 @@ class BasinsOfAttraction:
             self.periods = numpy.empty(shape, dtype=numpy.int32)
             self.periods_dev = alloc_like(self.ctx, self.periods)
 
+    def _maybe_allocate_hash_table_buffers(self, queue, shape, table_size):
         new_size = numpy.uint32(0).nbytes * numpy.prod(shape)
         if self.sequence_hashes_dev is None or new_size > self.sequence_hashes_dev.size:
             self.sequence_hashes_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=new_size)
+
+        if self.table_dev is None or self.table_size != table_size:
+            self.table_size = table_size
+            new_size = numpy.uint32(0).nbytes * table_size
+            self.table_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=new_size)
+            self.table_data_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE, size=new_size)
+
+        cl.enqueue_fill_buffer(queue, self.table_dev, numpy.uint32(0), 0, self.table_dev.size)
+        cl.enqueue_fill_buffer(queue, self.table_data_dev, numpy.uint32(0), 0, self.table_data_dev.size)
 
     def _find_attractors(self, queue, shape, iter, tol, check_collisions=False, table_size=None):
         assert iter <= 64, "max_iter is currently static and is 64"
 
         n_points = numpy.prod(shape)
-
         table_size = table_size or (n_points * 2 - 1)
+
         assert table_size < 2 ** 32, "table size must not exceed max int32 value"
 
-        # TODO avoid allocation of unnecessary host buffers? reduce allocations of device buffers by caching them?
+        self._maybe_allocate_hash_table_buffers(queue, shape, table_size)
 
-        table = numpy.zeros((table_size,), dtype=numpy.uint32)
-        table_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=table)
-
-        table_data = numpy.zeros((table_size,), dtype=numpy.uint32)
-        table_data_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=table_data)
+        queue.finish()
 
         period_counts = numpy.zeros((iter,), dtype=numpy.uint32)
         period_counts_dev = cl.Buffer(self.ctx, cl.mem_flags.READ_WRITE | cl.mem_flags.COPY_HOST_PTR, hostbuf=period_counts)
@@ -80,8 +89,8 @@ class BasinsOfAttraction:
             numpy.uint32(table_size),
             self.periods_dev,
             self.sequence_hashes_dev,
-            table_dev,
-            table_data_dev
+            self.table_dev,
+            self.table_data_dev
         )
 
         if check_collisions:
@@ -96,8 +105,8 @@ class BasinsOfAttraction:
                 self.periods_dev,
                 self.sequence_hashes_dev,
                 self.points_dev,
-                table_dev,
-                table_data_dev,
+                self.table_dev,
+                self.table_data_dev,
                 collisions_dev
             )
 
@@ -117,8 +126,8 @@ class BasinsOfAttraction:
         self.prg.count_periods_of_unique_sequences(
             queue, (table_size,), None,
             self.periods_dev,
-            table_dev,
-            table_data_dev,
+            self.table_dev,
+            self.table_data_dev,
             period_counts_dev
         )
 
@@ -162,8 +171,8 @@ class BasinsOfAttraction:
             numpy.uint32(iter),
             self.periods_dev,
             self.points_dev,
-            table_dev,
-            table_data_dev,
+            self.table_dev,
+            self.table_data_dev,
             period_counts_dev,
             hash_positions_dev,
             sequence_positions_dev,
@@ -175,7 +184,7 @@ class BasinsOfAttraction:
         cl.enqueue_copy(queue, unique_sequences, unique_sequences_dev)
         cl.enqueue_copy(queue, unique_sequences_info, unique_sequences_info_dev)
 
-        attractors = []
+        raw_attractors = []
         current_pos = 0
         current_pos_info = 0
         for period, n_sequences in enumerate(period_counts[:-1], start=1):
@@ -188,18 +197,38 @@ class BasinsOfAttraction:
                 .reshape((n_sequences, 2))
             current_pos_info += n_sequences
 
-            for sequence, (sequence_hash, count) in zip(sequences, info):
-                attractors.append({
-                    "attractor": list(map(tuple, sequence)),
-                    "period": int(period),
-                    "hash": int(sequence_hash),
-                    "occurences": int(count)
-                })
+            raw_attractors.append((int(period), sequences, *info.T))
 
-        return attractors, n_collisions
+        return raw_attractors, n_collisions
+
+    def _color_attractors(self, queue, img, attractors, color_fn):
+        # TODO this is also very-very slow!
+        t = time.perf_counter()
+        attractors.sort(key=lambda a: a["hash"])
+
+        hashes = numpy.array([attractor["hash"] for attractor in attractors], dtype=numpy.uint32)
+        colors = numpy.array([color_fn(attractor) for attractor in attractors], dtype=numpy.float32)
+
+        t = time.perf_counter() - t
+        print(f"coloring prep took {t:.3f} s")
+
+        # TODO we can avoid searching inside this kernel if we use PHF
+        hashes_dev = copy_dev(self.ctx, hashes)
+        colors_dev = copy_dev(self.ctx, colors)
+
+        self.prg.color_attractors(
+            queue, img.shape, None,
+            numpy.int32(len(attractors)),
+            hashes_dev,
+            colors_dev,
+            self.sequence_hashes_dev,
+            img.dev
+        )
+
+        return img.read(queue)
 
     def compute_attractors(self, queue, shape, skip, iter, h, alpha, c, bounds,
-                           root_seq=None, tolerance_decimals=3, seed=None):
+                           root_seq=None, tolerance_decimals=3, seed=None, threshold=0):
         self._maybe_allocate_buffers(shape, iter)
 
         seq_size, seq = prepare_root_seq(self.ctx, root_seq)
@@ -223,45 +252,32 @@ class BasinsOfAttraction:
         queue.finish()
 
         t = time.perf_counter()
-        attractors, n_collisions = self._find_attractors(
+        raw_attractors, n_collisions = self._find_attractors(
             queue, shape, iter, 1 / 10 ** tolerance_decimals,
-            check_collisions=True, table_size=None
+            check_collisions=False, table_size=None
         )
         t = time.perf_counter() - t
+        # print(f"finding attractors took {t:.3f} s")
 
-        # print(f"_find_attractors took {t:.3f} s")
+        attractors = []
+
+        # TODO this is too slow!
+        t = time.perf_counter()
+
+        for period, sequences, hashes, counts in raw_attractors:
+            mask = counts > threshold
+            sequences = sequences[mask]
+            hashes = hashes[mask]
+            counts = counts[mask]
+            for sequence, hash, count in zip(sequences, hashes, counts):
+                attractors.append({
+                    "attractor": sequence, "hash": hash, "occurences": count, "period": period
+                })
+            
+        t = time.perf_counter() - t
+        print(f"converting attractors took {t:.3f} s, found {len(attractors)} attractors")
 
         return attractors, n_collisions
-
-    def color_attractors(self, queue, img, attractors, color_fn):
-        # TODO this method is not private and relies on internal state of this object. can we do better?
-        hashes = numpy.empty((len(attractors),), dtype=numpy.uint32)
-        colors = numpy.empty((len(attractors), 3), dtype=numpy.float32)
-
-        for i, attractor in enumerate(attractors):
-            hashes[i] = attractor["hash"]
-            colors[i] = color_fn(attractor)
-
-        order = numpy.argsort(hashes)
-
-        hashes = hashes[order]
-        colors = colors[order]
-
-        hashes_dev = copy_dev(self.ctx, hashes)
-        colors_dev = copy_dev(self.ctx, colors)
-
-        # TODO we can avoid searching inside this kernel if we use PHF
-        # (which would simply be the indices of the `hashes` array); assign them before invoking this kernel
-        self.prg.color_attractors(
-            queue, img.shape, None,
-            numpy.int32(len(attractors)),
-            hashes_dev,
-            colors_dev,
-            self.sequence_hashes_dev,
-            img.dev
-        )
-
-        return img.read(queue)
 
     def compute_periods(self, queue, img, skip, iter, h, alpha, c, bounds,
                         root_seq=None, tolerance_decimals=3, seed=None):
@@ -300,7 +316,8 @@ class BasinsOfAttraction:
         return img.read(queue)
 
     def compute(self, queue, img, skip, iter, h, alpha, c, bounds,
-                root_seq=None, tolerance_decimals=3, seed=None, method="basins", color_init=None, color_fn=None):
+                root_seq=None, tolerance_decimals=3, seed=None, method="basins", 
+                color_init=None, color_fn=None, threshold=0):
         if method == "periods":
             return self.compute_periods(queue, img, skip, iter, h, alpha, c, bounds,
                                         root_seq, tolerance_decimals, seed)
@@ -308,14 +325,14 @@ class BasinsOfAttraction:
             if color_fn is None:
                 raise ValueError("color_fn should be set for method = 'basins'")
             attractors, n_collisions = self.compute_attractors(
-                queue, img.shape, skip, iter, h, alpha, c, bounds, root_seq, tolerance_decimals, seed
+                queue, img.shape, skip, iter, h, alpha, c, bounds, root_seq, tolerance_decimals, seed, threshold
             )
 
             if color_init is not None:
                 color_init(attractors, n_collisions)
 
             if attractors:
-                return self.color_attractors(queue, img, attractors, color_fn)
+                return self._color_attractors(queue, img, attractors, color_fn)
             else:
                 clear_image(queue, img.dev, img.shape, color=(0.0, 0.0, 0.0, 1.0))
                 return img.read(queue)

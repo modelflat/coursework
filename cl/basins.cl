@@ -333,7 +333,7 @@ kernel void color_attractors(
     const int2 coord = COORD_2D_INV_Y;
     const int id = coord.y * get_global_size(0) + coord.x;
 
-    const ulong hash = hashed_points[id];
+    const uint hash = hashed_points[id];
 
     const int color_no = binary_search(n, hashes, hash);
 
@@ -341,6 +341,6 @@ kernel void color_attractors(
         const float4 color = hsv2rgb(vload3(color_no, colors));
         write_imagef(image, coord, color);
     } else {
-        write_imagef(image, coord, (float4)(0.0f, 0.0f, 0.0f, 0.0f));
+        write_imagef(image, coord, (float4)(1.0f, 1.0f, 1.0f, 1.0f));
     }
 }
