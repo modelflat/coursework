@@ -21,6 +21,7 @@ ICD_PACKAGE_NAME=opencl_runtime_16.1.2_x64_rh_6.4.0.37
 
 wget -q ${ICD_PACKAGE_URL} -O /tmp/opencl_runtime.tgz && tar -xzf /tmp/opencl_runtime.tgz -C /tmp
 
+ls -la /tmp/${ICD_PACKAGE_NAME}
 sed 's/decline/accept/g' -i /tmp/${ICD_PACKAGE_NAME}/silent.cfg
 /tmp/${ICD_PACKAGE_NAME}/install.sh -s /tmp/${ICD_PACKAGE_NAME}/silent.cfg
 
