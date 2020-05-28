@@ -62,7 +62,7 @@ class LabDesk(QWidget):
             "method": "periods",
             "color_init": None,
             "color_fn": basins_simple_color_fn,
-            "threshold": 10
+            "threshold": 128
         }
 
         self.phase_plot = PhasePlot(self.ctx)

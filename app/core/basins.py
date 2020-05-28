@@ -1,5 +1,8 @@
+import os
 import time
 import warnings
+
+from collections import defaultdict
 
 import numpy
 import pyopencl as cl
@@ -210,7 +213,7 @@ class BasinsOfAttraction:
         colors = numpy.array([color_fn(attractor) for attractor in attractors], dtype=numpy.float32)
 
         t = time.perf_counter() - t
-        print(f"coloring prep took {t:.3f} s")
+        # print(f"coloring prep took {t:.3f} s")
 
         # TODO we can avoid searching inside this kernel if we use PHF
         hashes_dev = copy_dev(self.ctx, hashes)
@@ -275,7 +278,7 @@ class BasinsOfAttraction:
                 })
             
         t = time.perf_counter() - t
-        print(f"converting attractors took {t:.3f} s, found {len(attractors)} attractors")
+        # print(f"converting attractors took {t:.3f} s, found {len(attractors)} attractors")
 
         return attractors, n_collisions
 
@@ -337,3 +340,66 @@ class BasinsOfAttraction:
                 clear_image(queue, img.dev, img.shape, color=(0.0, 0.0, 0.0, 1.0))
                 return img.read(queue)
         raise ValueError("Unknown method: \"{}\"".format(method))
+
+
+def _format_attractor(attractor, format):
+    return " ".join(((f"%{format},%{format}" % (re, im)) for (re, im) in attractor.tolist()))
+
+
+def analyze_attractors(basins, queue, img, skip, iter, h, alpha, c, bounds, root_seq=None, 
+                       tolerance_decimals=3, seed=None, threshold=0, color_fn=None, norm=None):
+    z = list(range(1, iter))
+    base_colors = (numpy.array(z) - 1) * (300 / z[-1])
+
+    attractors = defaultdict(lambda: defaultdict(lambda: dict()))
+
+    current_colors = dict()
+    
+    def _color_init(attractors_input, n_collisions):
+        nonlocal attractors
+        nonlocal current_colors
+        for attractor in attractors_input:
+            period = attractor["period"]
+
+            is_significant = 0.05 * numpy.prod(img.shape) < attractor["occurences"]
+            if is_significant:
+                # we should give it brighter color
+                color = (base_colors[period - 1], 1, 1)
+            else:
+                # we should give it darker color
+                color = (base_colors[period - 1], 0.5, 0.5)
+            current_colors[attractor["hash"]] = color
+            
+        attractors = attractors_input
+
+    def _color_fn(attractor):
+        if color_fn is not None:
+            color = color_fn(_format_attractor(attractor["attractor"], f"+.{tolerance_decimals}f"), attractor)
+            if color is not None:
+                return color
+        return (0, 0, 0)
+
+    image = basins.compute(
+        queue, img, skip, iter, h, alpha, c, bounds, 
+        root_seq, tolerance_decimals, seed, "basins", _color_init, _color_fn, threshold
+    )
+
+    attractors_index = dict()
+
+    for attractor in attractors:
+        period = f"{int(attractor['period']):02d}"
+        if not period in attractors_index:
+            attractors_index[period] = dict()
+        
+        stringified = _format_attractor(attractor["attractor"], f"+.{tolerance_decimals}f")
+        if not stringified in attractors_index[period]:
+            attractors_index[period][stringified] = dict()
+        
+        attractor_info = attractors_index[period][stringified]
+        attractor_info["count"] = attractor_info.get("count", 0) + int(attractor["occurences"])
+        attractor_info["attractor"] = attractor["attractor"]
+
+        attractor.pop("hash")
+
+    return attractors_index, attractors, image
+

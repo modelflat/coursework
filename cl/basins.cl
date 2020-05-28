@@ -341,6 +341,6 @@ kernel void color_attractors(
         const float4 color = hsv2rgb(vload3(color_no, colors));
         write_imagef(image, coord, color);
     } else {
-        write_imagef(image, coord, (float4)(1.0f, 1.0f, 1.0f, 1.0f));
+        write_imagef(image, coord, (float4)(0.0f, 0.0f, 0.0f, 1.0f));
     }
 }
