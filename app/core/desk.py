@@ -1,3 +1,8 @@
+from collections import defaultdict
+from multiprocessing import Lock
+
+import numpy
+
 from PyQt5.QtWidgets import QWidget
 
 from core.basins import BasinsOfAttraction
@@ -6,12 +11,47 @@ from core.fast_box_counting import FastBoxCounting
 from core.param_map import ParameterMap
 from core.phase_plot import PhasePlot
 
-from multiprocessing import Lock
 
+def make_color_fn():
+    assigned_colors = defaultdict(lambda: [])
+    assigned_colors_tracker = set()
 
-def basins_simple_color_fn(attractor):
-    color = (120 * attractor["period"] / 32, 1, 1)
-    return color
+    max_norm = 100
+
+    def color_fn(attractor):
+        period = attractor["period"]
+        attr = attractor["attractor"]
+
+        norm = numpy.linalg.norm(attr.flatten())
+
+        if period == 1:
+            col = (0, 1.0, 1.0)
+        elif period == 3:
+            p1, p2, p3 = attr.view(dtype=numpy.complex128).flatten()
+            if abs(p1) < 1.0 and abs(p3) < 1.0 and abs(p2) > 20.0:
+                n = 0.6 * min(norm / 80, 1.0)
+                col = (240, 1.0, 1.0 - n)
+            else:
+                col = (280, 1.0, 1.0)
+        elif norm > max_norm:
+            col = (300 * period / 64, 1.0, 0.3)
+        else:
+            col = (240 * period / 64, 1.0, 1.0)
+
+        i = 0
+        while col in assigned_colors_tracker:
+            col = (col[0], col[1] - 0.25, col[2])
+            i += 1
+            if i >= 3:
+                break
+        
+        assigned_colors_tracker.add(col)
+
+        assigned_colors[period].append((col, attractor))
+
+        return col
+    
+    return color_fn
 
 
 class LabDesk(QWidget):
@@ -61,7 +101,6 @@ class LabDesk(QWidget):
             "bounds": cfg.phase_shape,
             "method": "periods",
             "color_init": None,
-            "color_fn": basins_simple_color_fn,
             "threshold": 128
         }
 
@@ -108,7 +147,8 @@ class LabDesk(QWidget):
 
     def draw_basins(self, img):
         with self.compute_lock:
-            return self.basins.compute(self.queue, img, root_seq=self.root_seq, **self.basins_params)
+            color_fn = make_color_fn()
+            return self.basins.compute(self.queue, img, root_seq=self.root_seq, color_fn=color_fn, **self.basins_params)
 
     def periods_and_attractors(self):
         pass

@@ -20,13 +20,13 @@ BOUNDS = (-2, 2, -2, 2)
 SKIP = 1 << 16
 ITER = 1 << 6
 
-OUTPUT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../COURSEWORK_DATA/ATTRACTORS/0002"))
+OUTPUT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../COURSEWORK_DATA/ATTRACTORS/alpha0.5"))
 
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 os.chdir(OUTPUT_PATH)
 
 
-points_file = "points.json"
+points_file = "points-alpha0.5.json"
 
 NORM = 100
 
@@ -77,7 +77,7 @@ def merge_attractor_indexes(index1, index2, filter_by_norm):
 
 def find_in_point(filename, root_seq, h, alpha, zoom=None):
     if os.path.exists(filename):
-        pass
+        return
 
     do_update_attractors = True
 
@@ -244,18 +244,18 @@ def find_in_point(filename, root_seq, h, alpha, zoom=None):
 
 
 def main():
-    root_seq = (0, 0, 0, 2)
+    root_seq = (0, 0, 1)
 
     with open(points_file) as f:
         points = json.load(f)
 
     zoomed_in_fragments = {
-        2: [-3, 3, -3, 3],
-        13: [-1, 1, -1, 1],
-        14: [-1, 1, -1, 1],
-        15: [-1, 1, -1, 1],
-        16: [-1, 1, -1, 1],
-        17: [-1, 1, -1, 1],
+        # 2: [-3, 3, -3, 3],
+        # 13: [-1, 1, -1, 1],
+        # 14: [-1, 1, -1, 1],
+        # 15: [-1, 1, -1, 1],
+        # 16: [-1, 1, -1, 1],
+        # 17: [-1, 1, -1, 1],
     }
 
     for i, (h, alpha) in enumerate(tqdm(points)):

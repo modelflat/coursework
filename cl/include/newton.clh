@@ -51,7 +51,7 @@ inline void ns_next(newton_state* s) {
         )
     ) / (1 + s->eps);
 
-    const real2 c = s->c * s->eps / (1 + s->eps);
+    const real2 c = -s->c * s->eps / (1 + s->eps);
 
     const int errcode = solve_cubic(a, (real2)(0, 0), c, s->roots);
 

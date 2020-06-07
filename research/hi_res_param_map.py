@@ -8,13 +8,13 @@ from app.config import Config
 from app.core.param_map import ParameterMap
 from app.core.utils import create_context_and_queue, CLImg
 
-ctx, queue = create_context_and_queue()
+ctx, queue = create_context_and_queue({"pid": 0, "did": 0})
 
 solver = ParameterMap(ctx)
 
-SIZE = (12288, 16384)
-SKIP = 1 << 14
-SKIP_BATCH = 1 << 7
+SIZE = (4096, 4096)
+SKIP = 1 << 17
+SKIP_BATCH = 1 << 10
 ITER = 1 << 6
 Z0 = complex(0.5, 0.0)
 OUTPUT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../COURSEWORK_DATA/PARAMETER_MAPS"))
@@ -23,7 +23,7 @@ os.makedirs(OUTPUT_PATH, exist_ok=True)
 os.chdir(OUTPUT_PATH)
 
 
-bounds_top_left = (-6, 0, 0.5, 1.0)
+bounds_top_left = (-6, 6, 0.0, 1.0)
 bounds_bottom_right = (0, 6, 0.0, 0.5)
 
 script = [
@@ -33,12 +33,12 @@ script = [
     ("top_left/map_0001", bounds_top_left, (0, 0, 0, 1)),
     ("top_left/map_00001", bounds_top_left, (0, 0, 0, 0, 1)),
     ("top_left/map_00000001", bounds_top_left, (0, 0, 0, 0, 0, 0, 0, 1)),
-    ("bottom_right/map_0", bounds_bottom_right, (0,)),
-    ("bottom_right/map_01", bounds_bottom_right, (0, 1)),
-    ("bottom_right/map_001", bounds_bottom_right, (0, 0, 1)),
-    ("bottom_right/map_0001", bounds_bottom_right, (0, 0, 0, 1)),
-    ("bottom_right/map_00001", bounds_bottom_right, (0, 0, 0, 0, 1)),
-    ("bottom_right/map_00000001", bounds_bottom_right, (0, 0, 0, 0, 0, 0, 0, 1)),
+    # ("bottom_right/map_0", bounds_bottom_right, (0,)),
+    # ("bottom_right/map_01", bounds_bottom_right, (0, 1)),
+    # ("bottom_right/map_001", bounds_bottom_right, (0, 0, 1)),
+    # ("bottom_right/map_0001", bounds_bottom_right, (0, 0, 0, 1)),
+    # ("bottom_right/map_00001", bounds_bottom_right, (0, 0, 0, 0, 1)),
+    # ("bottom_right/map_00000001", bounds_bottom_right, (0, 0, 0, 0, 0, 0, 0, 1)),
 ]
 
 
@@ -49,6 +49,7 @@ def compute_high_res_param_map(filename, bounds, root_sequence, parts=4, progres
 
     if os.path.exists(f"{filename}.png"):
         print(f"Skipping {filename} as it already exists ...")
+        progress.update(4 * SKIP // SKIP_BATCH)
         return
 
     image = CLImg(ctx, (SIZE[0], SIZE[1] // parts))

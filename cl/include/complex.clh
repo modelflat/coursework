@@ -4,7 +4,7 @@
 //#define USE_FLOATS
 
 #ifndef USE_FLOATS
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+// #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #endif
 
 #if defined(cl_khr_fp64) && (!defined(USE_FLOATS))

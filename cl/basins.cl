@@ -189,7 +189,7 @@ kernel void rotate_sequences(
     int start = find_minimal_rotation(period, id * iter, points, tol);
 
     if (start < 0) {
-        printf("W: rotation was found to be -1, which likely is a result of some bug!\n");
+        // printf("W: rotation was found to be -1, which likely is a result of some bug!\n");
         start = 0;
     }
 

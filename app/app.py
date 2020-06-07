@@ -274,8 +274,9 @@ class CourseWork(SimpleApp):
     def set_period_label(self):
         x_px, y_px = self.left_wgt._imageWidget.targetPx()
         if self.period_map is not None:
-            x_px = max(min(Config.param_map_image_shape[0] - 1, x_px), 0)
-            y_px = max(min(Config.param_map_image_shape[1] - 1, y_px), 0)
+            shp = self.period_map.shape
+            x_px = max(min(shp[0] - 1, x_px), 0)
+            y_px = max(min(shp[1] - 1, y_px), 0)
             y, x = int(y_px), int(x_px)
             per = self.period_map[y][x]
             self.period_label.setText(
