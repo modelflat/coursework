@@ -1,6 +1,8 @@
 #ifndef __UTIL_CLH
 #define __UTIL_CLH
 
+#define USE_OLD_COLORS
+
 #define COORD_2D_INV_Y (int2)(get_global_id(0), get_global_size(1) - get_global_id(1) - 1)
 
 inline float4 hsv2rgb(float3 hsv) {
@@ -39,57 +41,6 @@ inline real2 point_from_id_dense(const real4 bounds) {
     return bounds.s02 + uv * (bounds.s13 - bounds.s02);
 }
 
-// C++ STL pair operator< implementation
-inline int pair_lt(const real2 p1, const real2 p2) {
-    if (p1.x < p2.x) {
-        return 1;
-    } else if (p2.x < p1.x) {
-        return 0;
-    } else if (p1.y < p2.y) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
-
-#ifndef DETECTION_PRECISION
-#define DETECTION_PRECISION 1e-4
-#endif
-
-inline int pair_eq(real2 p1, real2 p2) {
-    return fabs(p1.x - p2.x) < DETECTION_PRECISION
-        && fabs(p1.y - p2.y) < DETECTION_PRECISION;
-}
-
-inline int pair_gt(const real2 p1, const real2 p2) {
-    return !(pair_lt(p1, p2) || pair_eq(p1, p2));
-}
-
-// TODO deprecate this
-int binary_search_old(int, const global real*, real2);
-int binary_search_old(int size, const global real* arr, real2 value) {
-    int l = 0, r = size;
-
-    while (l < r) {
-        const int mid = (r + l) / 2;
-        const real2 mid_value = vload2(mid, arr);
-
-        if (pair_eq(mid_value, value)) {
-            return mid;
-        }
-        if (r == l + 1) {
-            return -1;
-        }
-        if (pair_lt(mid_value, value)) {
-            l = mid;
-        } else {
-            r = mid;
-        }
-    }
-
-    return (r + l) / 2;
-}
-
 int binary_search(int, const global uint*, uint);
 int binary_search(int size, const global uint* arr, uint value) {
     int l = 0, r = size;
@@ -122,30 +73,36 @@ inline real2 round_point_tol(real2 point, real tol) {
     return convert_real2(convert_long2_rtz(point / tol)) * tol;
 }
 
-inline float3 hsv_for_count(int count, int total) {
-    if (count == total) {
+inline float3 hsv_for_count(int period, int n_iter) {
+    if (period <= 0 || period >= n_iter) {
         return (float3)(0.0, 0.0, 0.0);
     }
 
-    const float d = min(1.0, 8.0 / count);
+    enum { CYCLE_SIZE = 8 };
 
-    switch(count % 8) {
+    float s = 1.0;
+    float v = clamp(1.0 - 0.2 * (period / CYCLE_SIZE), 0.0, 1.0);
+
+    switch ((period % CYCLE_SIZE) + 1) {
         case 1:
-            return (float3)(0.00000, 1.00000, d);
+            return (float3)(  0, s, v);
         case 2:
-            return (float3)(0.33333, 1.00000, d);
+            return (float3)( 40, s, v);
         case 3:
-            return (float3)(0.66666, 1.00000, d);
+            return (float3)( 80, s, v);
         case 4:
-            return (float3)(0.83333, 1.00000, d);
+            return (float3)(120, s, v);
         case 5:
-            return (float3)(0.16666, 1.00000, d);
+            return (float3)(160, s, v);
         case 6:
-            return (float3)(0.50000, 1.00000, d);
+            return (float3)(200, s, v);
         case 7:
-            return (float3)(0.83333, 0.66666, d);
+            return (float3)(240, s, v);
+        case 8:
+            return (float3)(280, s, v);
         default:
-            return count == 8 ? .5 : d;
+            // not happening
+            return (float3)(  0, 0.25, 0.25);
     }
 }
 
@@ -157,7 +114,8 @@ inline float3 color_for_count_old(int count, int total) {
     if (count == total) {
         return 0.0;
     }
-    const float d = 1.0 / count * 8;
+    const float d = clamp(1.0 / count * 8, 0.0, 1.0);
+
     switch(count % 8) {
         case 1:
             return (float3)(1.0, 0.0, 0.0)*d;
@@ -177,5 +135,11 @@ inline float3 color_for_count_old(int count, int total) {
             return count == 8 ? .5 : d;
     }
 }
+
+#ifdef USE_OLD_COLORS
+#define color_for_period(p, i) ((float4)(color_for_count_old((p), (i)), 1.0))
+#else
+#define color_for_period(p, i) (hsv2rgb(hsv_for_count((p), (i))))
+#endif
 
 #endif // __UTIL_CLH

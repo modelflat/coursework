@@ -1,14 +1,17 @@
-import time
+from collections import Counter
 
 import numpy
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QLabel, QLineEdit, QCheckBox, QPushButton, QComboBox
+from PyQt5.QtWidgets import QLabel, QLineEdit, QPushButton, QComboBox
+from matplotlib import patches
+from matplotlib.colors import hsv_to_rgb
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
+from config import Config
 from core.desk import LabDesk
 from core.ui import SimpleApp, createSlider, stack, ParameterizedImageWidget
 from core.utils import blank_image, CLImg
-
-from config import Config
 
 
 numpy.random.seed(Config.seed)
@@ -41,14 +44,17 @@ class CourseWork(SimpleApp):
 
         self.desk = LabDesk(self.ctx, self.queue, Config)
 
-        self.left_image = CLImg(self.ctx, Config.default_shape)
-        self.right_image = CLImg(self.ctx, Config.default_shape)
+        self.left_image = CLImg(self.ctx, Config.image_shape)
+        self.right_image = CLImg(self.ctx, Config.image_shape)
+
+        self.figure = Figure(figsize=Config.attractor_plot_shape, dpi=Config.attractor_plot_dpi)
+        self.canvas = FigureCanvas(self.figure)
 
         # left widget is for parameter-related stuff
-        self.left_wgt = make_param_wgt(Config.h_bounds, Config.alpha_bounds, Config.param_map_image_shape)
+        self.left_wgt = make_param_wgt(Config.h_bounds, Config.alpha_bounds, Config.image_shape)
 
         # right widget is for phase-related stuff
-        self.right_wgt = make_phase_wgt(Config.phase_shape, Config.phase_image_shape)
+        self.right_wgt = make_phase_wgt(Config.phase_shape, Config.image_shape)
 
         self.h_slider, self.h_slider_wgt = \
             createSlider("real", Config.h_bounds, withLabel="h = {:2.3f}", labelPosition="top", withValue=0.5)
@@ -56,26 +62,15 @@ class CourseWork(SimpleApp):
         self.alpha_slider, self.alpha_slider_wgt = \
             createSlider("real", Config.alpha_bounds, withLabel="alpha = {:2.3f}", labelPosition="top", withValue=0.0)
 
-        self.skip_slider, self.skip_slider_wgt = \
-            createSlider("int", (1, 2048), withLabel="skip = {}", labelPosition="top", withValue=96)
-        self.iter_slider, self.iter_slider_wgt = \
-            createSlider("int", (1, 128), withLabel="iter = {}", labelPosition="top", withValue=48)
-
-        self.draw_periods_and_attractors_btn = QPushButton("Draw attractors + basins")
-        self.draw_periods_and_attractors_btn.clicked.connect(self.draw_periods_and_attractors)
-
         self.left_recompute_btn = QPushButton("Recompute")
         self.left_recompute_btn.clicked.connect(self.draw_left)
 
         self.right_recompute_btn = QPushButton("Recompute")
         self.right_recompute_btn.clicked.connect(self.draw_right)
 
-        self.random_seq_gen_btn = QPushButton("Generate random (input length)")
-
         self.random_seq_reset_btn = QPushButton("Reset")
         self.param_map_draw_btn = QPushButton("Draw parameter map")
-        self.clear_cb = QCheckBox("Clear image")
-        self.clear_cb.setChecked(True)
+
         self.right_mode_cmb = QComboBox()
         self.left_mode_cmb = QComboBox()
 
@@ -87,21 +82,21 @@ class CourseWork(SimpleApp):
 
         self.left_wgts = {
             "parameter map": self.draw_param_map,
-            "bif tree (h)": lambda: self.draw_bif_tree(param="h"),
-            "bif tree (alpha)": lambda: self.draw_bif_tree(param="alpha")
+            # "bif tree (h)": lambda: self.draw_bif_tree(param="h"),
+            # "bif tree (alpha)": lambda: self.draw_bif_tree(param="alpha")
         }
         self.left_mode_cmb.addItems(self.left_wgts.keys())
         self.left_mode_cmb.setCurrentText("parameter map")
 
         self.right_wgts = {
             "phase":  self.draw_phase,
-            "basins (periods)": lambda: self.draw_basins(method="periods"),
             "basins (attractors)": lambda: self.draw_basins(method="basins"),
+            # "basins (periods)": lambda: self.draw_basins(method="periods"),
         }
         self.right_mode_cmb.addItems(self.right_wgts.keys())
         self.right_mode_cmb.setCurrentText("basins (attractors)")
 
-        self.root_seq_edit.setText("0 0 1")
+        self.root_seq_edit.setText("0")
 
         self.setup_layout()
         self.connect_everything()
@@ -114,29 +109,21 @@ class CourseWork(SimpleApp):
             stack(self.left_mode_cmb, self.left_recompute_btn, kind="h"),
             self.left_wgt,
             self.period_label,
-            stack(
-                self.random_seq_gen_btn, self.random_seq_reset_btn,
-                kind="h"
-            ),
-            self.root_seq_edit,
+            self.d_label,
+            stack(self.root_seq_edit, self.random_seq_reset_btn, kind="h"),
         )
         right = stack(
-            stack(self.right_mode_cmb, self.right_recompute_btn, self.d_label, kind="h"),
+            stack(self.right_mode_cmb, self.right_recompute_btn, kind="h"),
             self.right_wgt,
-            stack(self.clear_cb, kind="h"),
             self.alpha_slider_wgt,
             self.h_slider_wgt,
-            self.skip_slider_wgt,
-            self.iter_slider_wgt,
-            self.draw_periods_and_attractors_btn
         )
-        self.setLayout(stack(left, right, kind="h", cm=(4, 4, 4, 4), sp=4))
+        right_canvas = stack(
+            self.canvas
+        )
+        self.setLayout(stack(left, right, right_canvas, kind="h", cm=(4, 4, 4, 4), sp=4))
 
     def connect_everything(self):
-
-        self.iter_slider.valueChanged.connect(self.draw_left)
-        self.skip_slider.valueChanged.connect(self.draw_left)
-
         def set_sliders_and_draw(val):
             self.draw_right()
             self.set_values_no_signal(*val)
@@ -164,17 +151,6 @@ class CourseWork(SimpleApp):
                 self.draw_left()
             self.right_wgt.valueChanged.connect(select_z0)
 
-        def gen_random_seq_fn(*_):
-            try:
-                root_seq_size = int(self.root_seq_edit.text())
-                self.desk.root_seq = numpy.random.randint(0, 2 + 1, size=root_seq_size, dtype=numpy.int32)
-                self.root_seq_edit.setText(" ".join(map(str, self.desk.root_seq)))
-                print(self.desk.root_seq)
-            except Exception as e:
-                print(e)
-
-        self.random_seq_gen_btn.clicked.connect(gen_random_seq_fn)
-
         def reset_random_seq_fn(*_):
             self.desk.root_seq = None
         self.random_seq_reset_btn.clicked.connect(reset_random_seq_fn)
@@ -186,7 +162,7 @@ class CourseWork(SimpleApp):
         self.desk.update_root_sequence(self.root_seq_edit.text())
 
     def draw_param_placeholder(self):
-        self.left_wgt.setImage(blank_image(Config.default_shape))
+        self.left_wgt.setImage(blank_image(Config.image_shape))
 
     def draw_basins(self, *_, method=None):
         h, alpha = self.left_wgt.value()
@@ -196,14 +172,53 @@ class CourseWork(SimpleApp):
             h=h, alpha=alpha, method=method
         )
 
-        self.right_wgt.setImage(
-            self.desk.draw_basins(self.right_image)
-        )
+        attractors, image = self.desk.draw_basins(self.right_image)
+
+        self.right_wgt.setImage(image)
+
+        period_counts = Counter()
+
+        self.figure.clf()
+        ax = self.figure.subplots(1, 1)
+
+        ax.set_xlim(Config.phase_shape[0:2])
+        ax.set_ylim(Config.phase_shape[2:4])
+
+        known_points = sum((a["occurences"] for a in attractors))
+        drawn_points = 0
+        total_area = numpy.prod(self.right_image.shape)
+
+        for attractor in sorted(attractors, key=lambda x: (x["period"], -x["occurences"])):
+            period = attractor["period"]
+            area = 100 * attractor["occurences"] / total_area
+            drawn_points += attractor["occurences"]
+            period_counts[period] += 1
+            if period_counts[period] < 4:
+                color = (attractor["color"][0] / 360, *attractor["color"][1:])
+                x, y = attractor["attractor"].T
+                ax.plot(
+                    x, y, "-o",
+                    label=f"a #{period_counts[period]} (p {period}) ({area:.2f}%)",
+                    alpha=0.8,
+                    color=hsv_to_rgb(color)
+                )
+
+        ax.grid(which="both")
+        self.figure.tight_layout(pad=1.5)
+        handles, labels = ax.get_legend_handles_labels()
+        handles.append(patches.Patch(
+            color="black",
+            label=f"chaos / inf {100 * (total_area - known_points) / total_area:.2f}%",
+        ))
+        handles.append(patches.Patch(
+            label=f"other attr. {100 * (known_points - drawn_points) / total_area:.2f}%",
+            alpha=0.0
+        ))
+        self.figure.legend(handles=handles)
+        self.canvas.draw()
 
     def draw_param_map(self, *_):
         self.parse_root_sequence()
-        # print("Start computing parameter map")
-        t = time.perf_counter()
 
         if Config.param_map_select_z0_from_phase:
             wgt = self.right_wgt
@@ -211,13 +226,9 @@ class CourseWork(SimpleApp):
         else:
             z0 = Config.param_map_z0
 
-        self.desk.update_param_map_params(
-            z0=z0, iter=self.iter_slider.value(), skip=self.skip_slider.value()
-        )
+        self.desk.update_param_map_params(z0=z0)
 
         image, periods = self.desk.draw_param_map(self.left_image)
-
-        # print("Computed parameter map in {:.3f} s".format(time.perf_counter() - t))
 
         self.left_wgt.setImage(image)
         self.period_map = periods
@@ -229,9 +240,7 @@ class CourseWork(SimpleApp):
         self.desk.update_phase_plot_params(
             h=h,
             alpha=alpha,
-            z0=Config.phase_z0 if not Config.phase_plot_select_point else complex(
-                *self.right_wgt.value()),
-            clear=self.clear_cb.isChecked(),
+            z0=Config.phase_z0 if not Config.phase_plot_select_point else complex(*self.right_wgt.value()),
         )
 
         self.right_wgt.setImage(
@@ -279,9 +288,7 @@ class CourseWork(SimpleApp):
             y_px = max(min(shp[1] - 1, y_px), 0)
             y, x = int(y_px), int(x_px)
             per = self.period_map[y][x]
-            self.period_label.setText(
-                "Detected period: {}".format("<chaos({})>".format(per) if per > 0.5 * Config.param_map_iter else per)
-            )
+            self.period_label.setText(f"Detected period: {per}")
 
     def set_values_no_signal(self, h, alpha):
         self.left_wgt.blockSignals(True)

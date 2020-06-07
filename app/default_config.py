@@ -23,9 +23,9 @@ class Config:
     Random seed for all algorithms used.
     """
 
-    default_shape = (400, 400)
+    image_shape = (512, 512)
     """
-    Default shape of all images produced, in pixels.
+    Shape of images produced, in pixels.
     """
 
     h_bounds = (-6, -0)
@@ -38,33 +38,32 @@ class Config:
     Bounds of parameter `alpha`.
     """
 
+    phase_shape = (-2, 2, -2, 2)
+    """
+    Shape of the phase plane to use.
+    """
+
     C = complex(-0.5, 0.5)
     """
     `C` constant.
     """
 
+    n_skip = 256
+    """
+    How many iterations to skip before starting an algorithm (applicable to all algorithms)
+    """
+
+    n_iter = 64
+    """
+    How many iterations to perform (applicable to all algorithms)
+    """
+
+    tolerance = 1e-3
+    """
+    Which level of tolerance to use (applicable to most algorithms)
+    """
+
     # Parameter map configuration
-
-    param_map_image_shape = default_shape
-    """
-    Image size for parameter maps.
-    """
-
-    param_map_skip = 1 << 8
-    """
-    How many iterations to skip before computing periods on parameter map.
-    """
-
-    param_map_iter = 1 << 6
-    """
-    How many iterations to look at when computing periods on parameter map.
-    This affects the number of detectable periods.
-    """
-
-    param_map_tolerance = 1e-3
-    """
-    Precision to use when comparing points in order to find periods.
-    """
 
     param_map_z0 = complex(0.5, 0.0)
     """
@@ -83,26 +82,6 @@ class Config:
 
     # Phase plot configuration
 
-    phase_shape = (-2, 2, -2, 2)
-    """
-    Region of phase space to draw.
-    """
-
-    phase_image_shape = default_shape
-    """
-    Image size for phase plots.
-    """
-
-    phase_skip = 1 << 10
-    """
-    How many iterations to skip before starting to draw the phase plot.
-    """
-
-    phase_iter = 1 << 10
-    """
-    How many iterations to draw on the phase plot.
-    """
-
     phase_grid_size = 16
     """
     Size of a grid of the initial conditions to use for phase plot.
@@ -120,38 +99,16 @@ class Config:
 
     # basins configuration
 
-    basins_image_shape = default_shape
+    basins_threshold = 128
     """
-    Image size for basins of attraction.  
-    """
-
-    basins_skip = param_map_skip
-    """
-    How many iterations to skip before capturing points.
+    How many times should a sequence appear in order to be counted as an attractor.
     """
 
-    basins_iter = param_map_iter
-    """
-    How many points to capture.
-    This affects the number of detectable periods.
-    """
+    attractor_plot_shape = (8, 8)
 
-    basins_tolerance = param_map_tolerance
-    """
-    Precision to use when comparing points in order to find periods.
-    """
+    attractor_plot_dpi = 80
 
     # Bifurcation tree configuration
-
-    bif_tree_skip = 1 << 10
-    """
-    How many iterations to skip before starting to draw the bifurcation tree.
-    """
-
-    bif_tree_iter = 1 << 8
-    """
-    How many iterations to draw.
-    """
 
     bif_tree_z0 = complex(0.5, 0)
     """

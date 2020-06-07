@@ -1,3 +1,4 @@
+import os
 import sys
 from typing import Union, Iterable, Callable
 
@@ -250,7 +251,9 @@ class SimpleApp(QWidget):
 
     def __init__(self, title):
         import json
+        # os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "1"
         self.app = QApplication(sys.argv)
+        # self.app.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
         # noinspection PyArgumentList
         super().__init__(parent=None)
         self.setWindowTitle(title)

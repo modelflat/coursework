@@ -50,20 +50,17 @@ kernel void param_map(
 
     periods[coord.y * get_global_size(0) + coord.x] = p;
 
-    float3 color = color_for_count_old(p, iter);
-    write_imagef(out, coord, (float4)(color, 1.0));
+    float4 color = color_for_period(p, iter);
+    write_imagef(out, coord, color);
 }
 
 // Fetch color for a period
 kernel void get_color(const int total, global int* count, global float* res) {
     const int id = get_global_id(0);
-    res += id * 3;
 
-    float3 color = color_for_count_old(count[id], total);
+    float3 color = color_for_period(count[id], total).xyz;
 
-    res[0] = color.x;
-    res[1] = color.y;
-    res[2] = color.z;
+    vstore3(color, id, res);
 }
 
 kernel void incremental_param_map_init(
@@ -186,6 +183,6 @@ kernel void color_param_map(
     write_only image2d_t out
 ) {
     const int2 coord = COORD_2D_INV_Y;
-    float3 color = color_for_count_old(periods[coord.y * get_global_size(0) + coord.x], iter);
-    write_imagef(out, coord, (float4)(color, 1.0));
+    float4 color = color_for_period(periods[coord.y * get_global_size(0) + coord.x], iter);
+    write_imagef(out, coord, color);
 }

@@ -12,11 +12,35 @@ from core.param_map import ParameterMap
 from core.phase_plot import PhasePlot
 
 
-def make_color_fn():
-    assigned_colors = defaultdict(lambda: [])
+def make_color_fn(use_new_fn=False):
     assigned_colors_tracker = set()
 
-    max_norm = 100
+    max_norm = 24
+
+    def new_color_fn(attractor):
+        period = attractor["period"]
+        attr = attractor["attractor"]
+
+        norm = numpy.linalg.norm(attr.flatten()) ** .5
+        arg = (numpy.angle(attr.view(numpy.complex128).reshape((period,))).mean() / numpy.pi + 1.0) / 2
+
+        h = 360 * arg
+        v = numpy.clip(norm / max_norm, 0, 1.0)
+
+        col = (int(h), 1.0, numpy.round(1.0 - v, decimals=2))
+
+        i = 0
+        while col in assigned_colors_tracker:
+            col = (col[0], col[1] - 0.25, col[2])
+            i += 1
+            if i >= 3:
+                break
+
+        assigned_colors_tracker.add(col)
+
+        attractor["color"] = col
+
+        return col
 
     def color_fn(attractor):
         period = attractor["period"]
@@ -47,11 +71,11 @@ def make_color_fn():
         
         assigned_colors_tracker.add(col)
 
-        assigned_colors[period].append((col, attractor))
+        attractor["color"] = col
 
         return col
     
-    return color_fn
+    return new_color_fn if use_new_fn else color_fn
 
 
 class LabDesk(QWidget):
@@ -59,15 +83,31 @@ class LabDesk(QWidget):
     def __init__(self, ctx, queue, cfg):
         super(LabDesk, self).__init__(None)
 
-        param_bounds = (*cfg.h_bounds, *cfg.alpha_bounds)
-
         self.ctx = ctx
         self.queue = queue
+        self.basins_params = None
+        self.param_map_params = None
+        self.phase_params = None
+        self.bif_tree_params = None
 
         self.bif_tree = BifTree(self.ctx)
+        self.param_map = ParameterMap(self.ctx)
+        self.basins = BasinsOfAttraction(self.ctx)
+        self.phase_plot = PhasePlot(self.ctx)
+        self.fbc = FastBoxCounting(self.ctx)
+
+        self.root_seq = None
+
+        self.update_parameters(cfg)
+
+        self.compute_lock = Lock()
+
+    def update_parameters(self, cfg):
+        param_bounds = (*cfg.h_bounds, *cfg.alpha_bounds)
+
         self.bif_tree_params = {
-            "skip": cfg.bif_tree_skip,
-            "iter": cfg.bif_tree_iter,
+            "skip": cfg.n_skip,
+            "iter": cfg.n_iter,
             "z0": cfg.bif_tree_z0,
             "c": cfg.C,
             "var_id": 0,
@@ -80,36 +120,33 @@ class LabDesk(QWidget):
             "try_rescaling": False
         }
 
-        self.param_map = ParameterMap(self.ctx)
         self.param_map_params = {
-            "skip": cfg.param_map_skip,
-            "iter": cfg.param_map_iter,
+            "skip": cfg.n_skip,
+            "iter": cfg.n_iter,
             "z0": cfg.param_map_z0,
             "c": cfg.C,
-            "tol": cfg.param_map_tolerance,
+            "tol": cfg.tolerance,
             "bounds": param_bounds,
-            "seed": None
+            "seed": cfg.seed
         }
 
-        self.basins = BasinsOfAttraction(self.ctx)
         self.basins_params = {
-            "skip": cfg.basins_skip,
-            "iter": cfg.basins_iter,
+            "skip": cfg.n_skip,
+            "iter": cfg.n_iter,
             "h": None,
             "alpha": None,
             "c": cfg.C,
             "bounds": cfg.phase_shape,
-            "method": "periods",
+            "method": "attractors",
             "color_init": None,
-            "threshold": 128
+            "threshold": cfg.basins_threshold
         }
 
-        self.phase_plot = PhasePlot(self.ctx)
         self.phase_params = {
-            "skip": cfg.phase_skip,
+            "skip": cfg.n_skip,
+            "iter": cfg.n_iter,
             "h": None,
             "alpha": None,
-            "iter": cfg.param_map_iter,
             "c": cfg.C,
             "bounds": cfg.phase_shape,
             "grid_size": cfg.phase_grid_size,
@@ -117,12 +154,6 @@ class LabDesk(QWidget):
             "clear": True,
             "seed": cfg.seed
         }
-
-        self.fbc = FastBoxCounting(self.ctx)
-
-        self.root_seq = None
-
-        self.compute_lock = Lock()
 
     def update_root_sequence(self, s):
         try:
@@ -147,11 +178,8 @@ class LabDesk(QWidget):
 
     def draw_basins(self, img):
         with self.compute_lock:
-            color_fn = make_color_fn()
+            color_fn = make_color_fn(use_new_fn=True)
             return self.basins.compute(self.queue, img, root_seq=self.root_seq, color_fn=color_fn, **self.basins_params)
-
-    def periods_and_attractors(self):
-        pass
 
     def update_param_map_params(self, **kwargs):
         self.param_map_params = { **self.param_map_params, **kwargs }

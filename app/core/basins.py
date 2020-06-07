@@ -321,9 +321,9 @@ class BasinsOfAttraction:
     def compute(self, queue, img, skip, iter, h, alpha, c, bounds,
                 root_seq=None, tolerance_decimals=3, seed=None, method="basins", 
                 color_init=None, color_fn=None, threshold=0):
-        if method == "periods":
-            return self.compute_periods(queue, img, skip, iter, h, alpha, c, bounds,
-                                        root_seq, tolerance_decimals, seed)
+        # if method == "periods":
+        #     return self.compute_periods(queue, img, skip, iter, h, alpha, c, bounds,
+        #                                 root_seq, tolerance_decimals, seed)
         if method == "basins":
             if color_fn is None:
                 raise ValueError("color_fn should be set for method = 'basins'")
@@ -335,10 +335,10 @@ class BasinsOfAttraction:
                 color_init(attractors, n_collisions)
 
             if attractors:
-                return self._color_attractors(queue, img, attractors, color_fn)
+                return attractors, self._color_attractors(queue, img, attractors, color_fn)
             else:
                 clear_image(queue, img.dev, img.shape, color=(0.0, 0.0, 0.0, 1.0))
-                return img.read(queue)
+                return [], img.read(queue)
         raise ValueError("Unknown method: \"{}\"".format(method))
 
 
