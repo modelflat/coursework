@@ -108,6 +108,8 @@ class Config:
 
     attractor_plot_dpi = 80
 
+    attractor_plot_fixed_size = False
+
     # Bifurcation tree configuration
 
     bif_tree_z0 = complex(0.5, 0)

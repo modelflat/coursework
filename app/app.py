@@ -50,6 +50,8 @@ class CourseWork(SimpleApp):
         self.figure = Figure(figsize=Config.attractor_plot_shape, dpi=Config.attractor_plot_dpi)
         self.canvas = FigureCanvas(self.figure)
 
+        self.canvas.setMinimumSize(*Config.image_shape)
+
         # left widget is for parameter-related stuff
         self.left_wgt = make_param_wgt(Config.h_bounds, Config.alpha_bounds, Config.image_shape)
 
@@ -181,8 +183,9 @@ class CourseWork(SimpleApp):
         self.figure.clf()
         ax = self.figure.subplots(1, 1)
 
-        ax.set_xlim(Config.phase_shape[0:2])
-        ax.set_ylim(Config.phase_shape[2:4])
+        if Config.attractor_plot_fixed_size:
+            ax.set_xlim(Config.phase_shape[0:2])
+            ax.set_ylim(Config.phase_shape[2:4])
 
         known_points = sum((a["occurences"] for a in attractors))
         drawn_points = 0
@@ -215,6 +218,7 @@ class CourseWork(SimpleApp):
             alpha=0.0
         ))
         self.figure.legend(handles=handles)
+        self.figure.tight_layout(pad=2.0)
         self.canvas.draw()
 
     def draw_param_map(self, *_):
@@ -240,6 +244,8 @@ class CourseWork(SimpleApp):
         self.desk.update_phase_plot_params(
             h=h,
             alpha=alpha,
+            skip=Config.n_skip + Config.n_iter - 1,
+            iter=1,
             z0=Config.phase_z0 if not Config.phase_plot_select_point else complex(*self.right_wgt.value()),
         )
 
@@ -309,16 +315,6 @@ class CourseWork(SimpleApp):
     def draw_left(self):
         what = self.left_mode_cmb.currentText()
         self.left_wgts[what]()
-
-    def draw_periods_and_attractors(self):
-        h, alpha = self.left_wgt.value()
-        self.parse_root_sequence()
-
-        self.desk.update_basins_params(
-            h=h, alpha=alpha, method=None
-        )
-
-        self.desk.periods_and_attractors()
 
 
 if __name__ == '__main__':
