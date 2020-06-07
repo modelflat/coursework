@@ -171,7 +171,8 @@ class CourseWork(SimpleApp):
         self.parse_root_sequence()
 
         self.desk.update_basins_params(
-            h=h, alpha=alpha, method=method
+            h=h, alpha=alpha, method=method, threshold=10,
+            table_size=2 ** 24 - 3
         )
 
         attractors, image = self.desk.draw_basins(self.right_image)

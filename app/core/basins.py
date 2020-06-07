@@ -231,7 +231,7 @@ class BasinsOfAttraction:
         return img.read(queue)
 
     def compute_attractors(self, queue, shape, skip, iter, h, alpha, c, bounds,
-                           root_seq=None, tolerance_decimals=3, seed=None, threshold=0):
+                           root_seq=None, tolerance_decimals=3, seed=None, threshold=0, table_size=None):
         self._maybe_allocate_buffers(shape, iter)
 
         seq_size, seq = prepare_root_seq(self.ctx, root_seq)
@@ -254,10 +254,15 @@ class BasinsOfAttraction:
 
         queue.finish()
 
+        # x = numpy.empty((*shape, iter, 2), dtype=real_type)
+        # cl.enqueue_copy(queue, x, self.points_dev)
+        # print(x)
+        # print(numpy.unique(x[~(numpy.isnan(x) | numpy.isclose(x, 0.0))]))
+
         t = time.perf_counter()
         raw_attractors, n_collisions = self._find_attractors(
             queue, shape, iter, 1 / 10 ** tolerance_decimals,
-            check_collisions=False, table_size=None
+            check_collisions=False, table_size=table_size
         )
         t = time.perf_counter() - t
         # print(f"finding attractors took {t:.3f} s")
@@ -320,7 +325,7 @@ class BasinsOfAttraction:
 
     def compute(self, queue, img, skip, iter, h, alpha, c, bounds,
                 root_seq=None, tolerance_decimals=3, seed=None, method="basins", 
-                color_init=None, color_fn=None, threshold=0):
+                color_init=None, color_fn=None, threshold=0, table_size=None):
         # if method == "periods":
         #     return self.compute_periods(queue, img, skip, iter, h, alpha, c, bounds,
         #                                 root_seq, tolerance_decimals, seed)
@@ -328,7 +333,8 @@ class BasinsOfAttraction:
             if color_fn is None:
                 raise ValueError("color_fn should be set for method = 'basins'")
             attractors, n_collisions = self.compute_attractors(
-                queue, img.shape, skip, iter, h, alpha, c, bounds, root_seq, tolerance_decimals, seed, threshold
+                queue, img.shape, skip, iter, h, alpha, c, bounds, root_seq, tolerance_decimals, seed, threshold,
+                table_size=table_size
             )
 
             if color_init is not None:
