@@ -5,6 +5,8 @@
 #define POINT_RADIUS 1
 #endif
 
+#define DRAW_ALL_ROOTS 0
+
 #define POINT_COLOR (float4)(0.0, 0.0, 0.0, 1.0)
 
 
@@ -108,21 +110,21 @@ kernel void newton_fractal(
 
     const int2 image_size = get_image_dim(out);
 
-    for (int i = 0, frozen = 0; i < iter; ++i) {
+    for (int i = 0; i < iter; ++i) {
+#if DRAW_ALL_ROOTS == 1
         for (int i = 0; i < 3; ++i) {
             const int2 coord = to_size(state.roots[i], bounds, image_size);
 
             if (in_rect(coord, image_size)) {
                 put_point(out, coord, image_size);
-                frozen = 0;
-            } else {
-                if (++frozen > 32 * 3) {
-                    // this likely means that solution is going to approach infinity
-                    // printf("[OCL] error at slave %d: frozen!\n", get_global_id(0));
-                    break;
-                }
             }
         }
+#else
+        const int2 coord = to_size(state.z, bounds, image_size);
+        if (in_rect(coord, image_size)) {
+            put_point(out, coord, image_size);
+        }
+#endif
 
         ns_next(&state);
     }

@@ -6,9 +6,8 @@
 #define ROTATION_MAX_ITER 64
 #endif
 
-#define ROTATION_PT_LESS(a, b) (length(a) < length(b))
-#define ROTATION_PT_GREATER(a, b) (length(a) > length(b))
-#define ROTATION_PT_NOT_EQUAL(a, b) (ROTATION_PT_LESS(a, b) || ROTATION_PT_GREATER(a, b))
+#define ROTATION_PT_NOT_EQUAL(a, b) (distance(a, b) > tol)
+#define ROTATION_PT_LESS(a, b) (length(a) < length(b) && ROTATION_PT_NOT_EQUAL(a, b))
 
 // Find minimal rotation of a sequence of complex numbers
 // https://en.wikipedia.org/wiki/Lexicographically_minimal_string_rotation#Booth's_Algorithm

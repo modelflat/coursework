@@ -157,7 +157,7 @@ kernel void incremental_param_map_finalize(
             vstore2(state.z, points_output_coord + i, points_captured);
         }
 
-        if (!period_ready && (any(isnan(state.z)) || any(fabs(state.z) > 1e6))) {
+        if (!period_ready && (any(isnan(state.z)) || any(fabs(state.z) > 1e4))) {
             p = 0;
             period_ready = 1;
             if (!capture_points) {
