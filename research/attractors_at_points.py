@@ -20,13 +20,13 @@ BOUNDS = (-2, 2, -2, 2)
 SKIP = 1 << 16
 ITER = 1 << 6
 
-OUTPUT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../COURSEWORK_DATA/ATTRACTORS/alpha0.5"))
+OUTPUT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../COURSEWORK_DATA/ATTRACTORS/extras"))
 
 os.makedirs(OUTPUT_PATH, exist_ok=True)
 os.chdir(OUTPUT_PATH)
 
 
-points_file = "points-alpha0.5.json"
+points_file = "points.json"
 
 NORM = 100
 
@@ -153,7 +153,7 @@ def find_in_point(filename, root_seq, h, alpha, zoom=None):
         json.dump(attractors, f, indent=2, sort_keys=True)
 
     if attractors_raw:
-        fig, ax = pyplot.subplots(1, 1, dpi=200, figsize=(20, 15))
+        fig, ax = pyplot.subplots(1, 1, dpi=200, figsize=(8, 6))
 
         total = numpy.prod(SIZE)
 
@@ -239,15 +239,16 @@ def find_in_point(filename, root_seq, h, alpha, zoom=None):
     fn = filename.index("_", fn + 1)
     to_file(
         image.as_img(), BOUNDS, filename[:fn] + "_basins" + filename[fn:], colors_and_labels,
-        dpi=64, legend_bbox_anchor=(1.3, 1.012)
+        dpi=120, legend_bbox_anchor=(1.3, 1.012)
     )
 
 
 def main():
-    root_seq = (0, 0, 1)
+    root_seq = (0, 0, 0, 2)
 
     with open(points_file) as f:
         points = json.load(f)
+        points = [points[25], points[31]]
 
     zoomed_in_fragments = {
         # 2: [-3, 3, -3, 3],

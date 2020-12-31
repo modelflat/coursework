@@ -158,7 +158,7 @@ kernel void incremental_param_map_finalize(
         }
 
         if (!period_ready && (any(isnan(state.z)) || any(fabs(state.z) > 1e4))) {
-            p = 0;
+            p = iter;
             period_ready = 1;
             if (!capture_points) {
                 break;

@@ -12,8 +12,8 @@ ctx, queue = create_context_and_queue({"pid": 0, "did": 0})
 
 solver = ParameterMap(ctx)
 
-SIZE = (2048, 2048)
-SKIP = 1 << 14
+SIZE = (400, 400)
+SKIP = 1 << 16
 SKIP_BATCH = 1 << 10
 ITER = 1 << 6
 Z0 = complex(0.5, 0.0)
@@ -27,15 +27,16 @@ check_exists = False
 
 bounds_whole = (-6, 6, 0.0, 1.0)
 bounds_top_left = (-6, 0, 0.5, 1.0)
+bounds_top_left = (-6, 6, 0.0, 1.0)
 bounds_bottom_right = (0, 6, 0.0, 0.5)
 
 script = [
     # ("top_left/map_0", bounds_top_left, (0,)),
     # ("top_left/map_01", bounds_top_left, (0, 1)),
-    ("top_left/map_001", bounds_top_left, (0, 0, 1)),
+    # ("top_left/map_001", bounds_top_left, (0, 0, 1)),
     # ("top_left/map_0001", bounds_top_left, (0, 0, 0, 1)),
-    # ("top_left/map_00001", bounds_top_left, (0, 0, 0, 0, 1)),
-    # ("top_left/map_00000001", bounds_top_left, (0, 0, 0, 0, 0, 0, 0, 1)),
+    ("top_left/map_8+1", bounds_top_left, (*([0] * 8), 1)),
+    # ("top_left/map_16+1", bounds_top_left, (*([0] * 16), 1)),
     # ("bottom_right/map_0", bounds_bottom_right, (0,)),
     # ("bottom_right/map_01", bounds_bottom_right, (0, 1)),
     # ("bottom_right/map_001", bounds_bottom_right, (0, 0, 1)),

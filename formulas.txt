@@ -1,0 +1,37 @@
+Formulas in latex (for mathjax) (zoom 25%):
+
+$$ \phi (z) = z^3 + c = 0 $$
+
+$$ z_{n+1} = z_n - { \phi (z_n)  \over \phi' (z_n) } $$
+
+$$ 2 z^3_n - 3 z_{n+1} z^2_n + c = 0 $$
+
+$$ z_{n + 1} = z_n - h { \phi (z_n)  \over \phi' (z_n) } $$
+
+$$ (3 - h) z_n^3 - 3 z_n^3 z_{n+1} - c h = 0 $$
+
+$$ \dot z = f(z) = { \phi (z) \over \phi' (z) } $$
+
+$$ z_{n+1} = z_n + d f(z_n) $$
+
+$$ z_{n+1} = z_n + d f(z_{n+1}) $$
+
+$$ z_n = z_{n+1} - d f(z_{n+1}) $$
+
+$$ \Psi (z_n, z_{n+1}) = 0 $$
+
+$$ z_{n+1} = z_n + { 1 \over 2 } d (f(z_n) + f(z_{n+1})) $$
+
+$$ z_{n+1} = z_n + h (\alpha f(z_n) + (1 - \alpha) f(z_{n+1}))\ ,\ \ f(z) = { z^3 - c \over 3 z^2 } $$ 
+
+$$ z_{n+1}^3 - z_{n+1}^2 { (z_n + \alpha h {z_n^3 + c \over 3 z_n^2 } ) \over 1 + \xi } - { c \xi \over 1 + \xi } = 0\ , \ \ \xi = - { h (1 - \alpha) \over 3} $$ 
+
+$$ z_{n+1} = \Psi_+ (\alpha, h; z_n) $$
+
+$$ z_{n} = \Psi_- (\alpha, h; z_{n+1}) $$
+
+$$ z_{n+1} = \Psi_+ (1 - \alpha, -h; z_n) = \Psi_- (\alpha, h; z_n) $$
+
+$$ z_n = \Psi_- (1 - \alpha, -h; z_{n+1}) = \Psi_+ (\alpha, h; z_{n+1}) $$
+
+$$ z_{n+1}^3 - z_{n+1}^2 { (z_n + \alpha h {z_n^3 + c \over 3 z_n^2 } ) \over 1 + \xi } + { c \xi \over 1 + \xi } = 0\ , \ \ \xi = - { h (1 - \alpha) \over 3} $$ 
